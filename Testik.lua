@@ -1,5 +1,5 @@
--- ✅ ИСПРАВЛЕННАЯ ВЕРСИЯ ДЛЯ ТЕЛЕФОНА (PlayerGui)
--- Меню должно появиться сразу
+-- ✅ ТЕЛЕФОН ВЕРСИЯ — Отталкивание ПРИ КАСАНИИ
+-- Кто касается тебя — улетает очень далеко
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,14 +11,13 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 
--- Настройки
-local REPULSE_RADIUS = 50
-local REPULSE_FORCE = 700
+local REPULSE_FORCE = 1200        -- Очень сильный отлёт
 local repelEnabled = true
+local debounce = {}               -- Защита от спама
 
--- Создаём GUI в PlayerGui
+-- GUI (PlayerGui)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MobileRepelMenu"
+ScreenGui.Name = "TouchRepelMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
@@ -37,7 +36,7 @@ UICorner.Parent = Frame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 50)
 Title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Title.Text = "📱 Repel Menu (ФИКС)"
+Title.Text = "📱 Touch Repel"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 20
 Title.Font = Enum.Font.GothamBold
@@ -61,7 +60,7 @@ local Status = Instance.new("TextLabel")
 Status.Size = UDim2.new(1, 0, 0, 40)
 Status.Position = UDim2.new(0, 0, 0.68, 0)
 Status.BackgroundTransparency = 1
-Status.Text = "✅ Статус: ВКЛ"
+Status.Text = "✅ Статус: ВКЛ (при касании)"
 Status.TextColor3 = Color3.fromRGB(0, 255, 0)
 Status.TextSize = 16
 Status.Font = Enum.Font.Gotham
@@ -92,9 +91,7 @@ Title.InputBegan:Connect(function(input)
     end
 end)
 
-Title.InputEnded:Connect(function()
-    dragging = false
-end)
+Title.InputEnded:Connect(function() dragging = false end)
 
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
@@ -103,7 +100,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Функции
+-- Бессмертие
 local function enableGodmode()
     if Humanoid then
         Humanoid.MaxHealth = math.huge
@@ -112,33 +109,51 @@ local function enableGodmode()
     end
 end
 
-local function repelPlayers()
-    if not repelEnabled or not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
-    local root = Character.HumanoidRootPart
-    local myPos = root.Position
+-- Функция отталкивания при касании
+local function onTouch(hit)
+    if not repelEnabled then return end
+    
+    local humanoid = hit.Parent:FindFirstChild("Humanoid")
+    local root = hit.Parent:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not root then return end
+    
+    local player = Players:GetPlayerFromCharacter(hit.Parent)
+    if not player or player == LocalPlayer then return end
+    
+    -- Защита от спама
+    if debounce[player] then return end
+    debounce[player] = true
+    delay(0.3, function() debounce[player] = nil end)
+    
+    local myRoot = Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    
+    local direction = (root.Position - myRoot.Position).Unit
+    
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "TouchRepel"
+    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bv.Velocity = direction * REPULSE_FORCE + Vector3.new(0, 150, 0) -- сильно вверх + назад
+    bv.Parent = root
+    game:GetService("Debris"):AddItem(bv, 0.6)
+end
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local tRoot = plr.Character.HumanoidRootPart
-            local dist = (tRoot.Position - myPos).Magnitude
-            if dist < REPULSE_RADIUS and dist > 3 then
-                local dir = (tRoot.Position - myPos).Unit
-                local bv = Instance.new("BodyVelocity")
-                bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-                bv.Velocity = dir * REPULSE_FORCE + Vector3.new(0, 100, 0)
-                bv.Parent = tRoot
-                game:GetService("Debris"):AddItem(bv, 0.4)
-            end
+-- Подключаем Touch ко всем частям персонажа
+local function connectTouch()
+    for _, part in ipairs(Character:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.Touched:Connect(onTouch)
         end
     end
 end
 
+-- Переключатель
 local function toggleRepel()
     repelEnabled = not repelEnabled
     if repelEnabled then
         ToggleButton.Text = "ВЫКЛЮЧИТЬ ОТТАЛКИВАНИЕ"
         ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        Status.Text = "✅ Статус: ВКЛ"
+        Status.Text = "✅ Статус: ВКЛ (при касании)"
         Status.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
         ToggleButton.Text = "ВКЛЮЧИТЬ ОТТАЛКИВАНИЕ"
@@ -148,22 +163,21 @@ local function toggleRepel()
     end
 end
 
--- Подключения
 ToggleButton.MouseButton1Click:Connect(toggleRepel)
 FloatButton.MouseButton1Click:Connect(function()
     Frame.Visible = not Frame.Visible
 end)
 
-RunService.Heartbeat:Connect(repelPlayers)
-
 -- Инициализация
 enableGodmode()
+connectTouch()
 
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     Character = newChar
     Humanoid = newChar:WaitForChild("Humanoid")
     enableGodmode()
+    wait(1)
+    connectTouch()
 end)
 
-print("✅ МЕНЮ ДОЛЖНО ПОЯВИТЬСЯ! (PlayerGui версия)")
-print("Если не видно — попробуй перезапустить скрипт после полного захода в игру.")
+print("✅ Touch Repel загружен! Теперь отталкивает ТОЛЬКО при касании.")
