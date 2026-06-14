@@ -1,274 +1,154 @@
--- SUPERMAN FLY ДЛЯ ТЕЛЕФОНА (LocalScript)
--- Помести в StarterPlayer → StarterPlayerScripts
+-- ✅ Полностью рабочая Kill On Touch с меню для Roblox Executor
+-- Вставляй в executor (Synapse, Krnl, Fluxus и т.д.)
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+local enabled = false
+local connections = {}
 
-local flying = false
-local touchTeleport = true
-local speed = 120
+-- Создаём красивую менюшку
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KillOnTouchMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
-local bodyVelocity = nil
-local bodyGyro = nil
-local flyConnection = nil
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 280, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -90)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
 
--- ==================== GUI ====================
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SupermanMobileMenu"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 420)
-mainFrame.Position = UDim2.new(0.5, -150, 0.5, -210)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundTransparency = 1
+Title.Text = "Kill On Touch"
+Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
 
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
-Instance.new("UIStroke", mainFrame).Color = Color3.fromRGB(0, 140, 255)
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.8, 0, 0, 50)
+ToggleButton.Position = UDim2.new(0.1, 0, 0.45, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ToggleButton.Text = "ВКЛЮЧИТЬ KILL"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.TextScaled = true
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = MainFrame
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 60)
-title.BackgroundColor3 = Color3.fromRGB(0, 90, 220)
-title.Text = "🦸 SUPERMAN FLY"
-title.TextColor3 = Color3.new(1,1,1)
-title.TextScaled = true
-title.Font = Enum.Font.GothamBold
-title.Parent = mainFrame
-Instance.new("UICorner", title).CornerRadius = UDim.new(0, 16)
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.Parent = ToggleButton
 
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 40, 0, 40)
-closeBtn.Position = UDim2.new(1, -45, 0, 10)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.new(1, 0.2, 0.2)
-closeBtn.TextScaled = true
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.Parent = mainFrame
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Статус: ВЫКЛ"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+StatusLabel.TextScaled = true
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = MainFrame
 
--- Большая кнопка полёта
-local flyBtn = Instance.new("TextButton")
-flyBtn.Size = UDim2.new(0.9, 0, 0, 70)
-flyBtn.Position = UDim2.new(0.05, 0, 0, 80)
-flyBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-flyBtn.Text = "🛫 ВКЛЮЧИТЬ ПОЛЁТ"
-flyBtn.TextColor3 = Color3.new(1,1,1)
-flyBtn.TextScaled = true
-flyBtn.Font = Enum.Font.GothamBold
-flyBtn.Parent = mainFrame
-Instance.new("UICorner", flyBtn).CornerRadius = UDim.new(0, 12)
-
--- Телепорт
-local tpBtn = Instance.new("TextButton")
-tpBtn.Size = UDim2.new(0.9, 0, 0, 55)
-tpBtn.Position = UDim2.new(0.05, 0, 0, 160)
-tpBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-tpBtn.Text = "📍 Телепорт при касании: ВКЛ"
-tpBtn.TextColor3 = Color3.new(1,1,1)
-tpBtn.TextScaled = true
-tpBtn.Font = Enum.Font.GothamSemibold
-tpBtn.Parent = mainFrame
-Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 12)
-
--- Скорость
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(0.9, 0, 0, 40)
-speedLabel.Position = UDim2.new(0.05, 0, 0, 225)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "Скорость: 120"
-speedLabel.TextColor3 = Color3.new(1,1,1)
-speedLabel.TextScaled = true
-speedLabel.Parent = mainFrame
-
-local speedSlider = Instance.new("TextButton")
-speedSlider.Size = UDim2.new(0.9, 0, 0, 35)
-speedSlider.Position = UDim2.new(0.05, 0, 0, 270)
-speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-speedSlider.Text = "Ползунок скорости"
-speedSlider.TextColor3 = Color3.new(1,1,1)
-speedSlider.TextScaled = true
-speedSlider.Parent = mainFrame
-Instance.new("UICorner", speedSlider).CornerRadius = UDim.new(0, 10)
-
--- Инструкция
-local info = Instance.new("TextLabel")
-info.Size = UDim2.new(0.9, 0, 0, 70)
-info.Position = UDim2.new(0.05, 0, 0, 320)
-info.BackgroundTransparency = 1
-info.Text = "Касайся игроков — они прилетят к тебе\nДвигай камеру пальцем"
-info.TextColor3 = Color3.fromRGB(200,200,200)
-info.TextScaled = true
-info.TextWrapped = true
-info.Parent = mainFrame
-
--- ==================== ЛОГИКА ====================
-local function getCharacter()
-    return player.Character or player.CharacterAdded:Wait()
-end
-
-local function setupFly(char)
-    local root = char:WaitForChild("HumanoidRootPart")
-    local hum = char:WaitForChild("Humanoid")
-    
-    if bodyVelocity then bodyVelocity:Destroy() end
-    if bodyGyro then bodyGyro:Destroy() end
-    
-    bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(400000, 400000, 400000)
-    bodyVelocity.Parent = root
-    
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-    bodyGyro.P = 3000
-    bodyGyro.Parent = root
-    
-    hum.PlatformStand = true
-end
-
-local function endFly(char)
-    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
-    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then hum.PlatformStand = false end
-end
-
-local function toggleFly()
-    local char = getCharacter()
-    if flying then
-        setupFly(char)
-        flyBtn.Text = "🛬 ВЫКЛЮЧИТЬ ПОЛЁТ"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+-- Функция обновления вида кнопки
+local function updateUI()
+    if enabled then
+        ToggleButton.Text = "ВЫКЛЮЧИТЬ KILL"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        StatusLabel.Text = "Статус: ВКЛЮЧЕНО"
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
     else
-        endFly(char)
-        flyBtn.Text = "🛫 ВКЛЮЧИТЬ ПОЛЁТ"
-        flyBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        ToggleButton.Text = "ВКЛЮЧИТЬ KILL"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        StatusLabel.Text = "Статус: ВЫКЛ"
+        StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     end
 end
 
--- Управление полётом (для телефона — по направлению камеры)
-local moveDirection = Vector3.new(0,0,0)
-
-local function updateFly()
-    if not flying or not bodyVelocity then return end
-    local char = getCharacter()
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+-- Основная функция убийства
+local function killPlayerOnTouch(hit)
+    if not enabled then return end
     
-    local forward = camera.CFrame.LookVector
-    local right = camera.CFrame.RightVector
+    local character = hit.Parent
+    if not character then return end
     
-    local vel = (forward * moveDirection.Z + right * moveDirection.X + Vector3.new(0, moveDirection.Y, 0)) * speed
-    bodyVelocity.Velocity = vel
-    bodyGyro.CFrame = camera.CFrame
-end
-
--- Touch Teleport
-local function onTouch(hit, char)
-    if not flying or not touchTeleport then return end
-    local hitChar = hit.Parent
-    if hitChar == char or not hitChar:FindFirstChild("Humanoid") then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    local otherPlayer = Players:GetPlayerFromCharacter(character)
     
-    local hitRoot = hitChar:FindFirstChild("HumanoidRootPart")
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if hitRoot and root then
-        hitRoot.CFrame = root.CFrame * CFrame.new(0, 5, 8)
+    if humanoid and otherPlayer and otherPlayer ~= player then
+        -- Убиваем игрока
+        humanoid.Health = 0
+        -- Дополнительно (на случай анти-читов)
+        pcall(function()
+            humanoid:TakeDamage(100)
+        end)
     end
 end
 
-local function setupTouch(char)
-    for _, part in pairs(char:GetDescendants()) do
+-- Подключение Touched ко всем частям персонажа
+local function setupCharacter(char)
+    -- Очищаем старые соединения
+    for _, conn in pairs(connections) do
+        conn:Disconnect()
+    end
+    connections = {}
+    
+    task.wait(1) -- Ждём пока персонаж полностью загрузится
+    
+    for _, part in ipairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
-            part.Touched:Connect(function(hit)
-                onTouch(hit, char)
-            end)
+            local conn = part.Touched:Connect(killPlayerOnTouch)
+            table.insert(connections, conn)
         end
     end
+    
+    -- Подключаем на новые части (если респавн)
+    local descConn = char.DescendantAdded:Connect(function(desc)
+        if desc:IsA("BasePart") then
+            local conn = desc.Touched:Connect(killPlayerOnTouch)
+            table.insert(connections, conn)
+        end
+    end)
+    table.insert(connections, descConn)
 end
 
--- ==================== КНОПКИ ====================
-flyBtn.MouseButton1Click:Connect(function()
-    flying = not flying
-    toggleFly()
+-- Переключение
+ToggleButton.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    updateUI()
 end)
 
-tpBtn.MouseButton1Click:Connect(function()
-    touchTeleport = not touchTeleport
-    tpBtn.Text = "📍 Телепорт при касании: " .. (touchTeleport and "ВКЛ" or "ВЫКЛ")
-    tpBtn.BackgroundColor3 = touchTeleport and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+-- Обработка респавна персонажа
+player.CharacterAdded:Connect(function(char)
+    setupCharacter(char)
 end)
 
-closeBtn.MouseButton1Click:Connect(function()
-    screenGui.Enabled = false
-end)
+-- Если персонаж уже есть
+if player.Character then
+    setupCharacter(player.Character)
+end
 
--- Слайдер скорости (работает пальцем)
-speedSlider.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        local conn = RunService.RenderStepped:Connect(function()
-            local pos = UserInputService:GetMouseLocation()
-            local sliderPos = speedSlider.AbsolutePosition
-            local sliderSize = speedSlider.AbsoluteSize
-            local percent = math.clamp((pos.X - sliderPos.X) / sliderSize.X, 0, 1)
-            speed = 60 + percent * 240
-            speedLabel.Text = "Скорость: " .. math.floor(speed)
-        end)
-        
-        local release
-        release = UserInputService.InputEnded:Connect(function()
-            conn:Disconnect()
-            release:Disconnect()
-        end)
+-- Горячая клавиша (F4)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.F4 then
+        enabled = not enabled
+        updateUI()
     end
 end)
 
--- Кнопки движения для телефона
-local function createMoveButton(text, pos, dir)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 70, 0, 70)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.TextScaled = true
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = screenGui
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 50)
-    
-    btn.InputBegan:Connect(function()
-        moveDirection = moveDirection + dir
-    end)
-    btn.InputEnded:Connect(function()
-        moveDirection = moveDirection - dir
-    end)
-    return btn
-end
+updateUI()
 
-createMoveButton("↑", UDim2.new(0.75, 0, 0.6, 0), Vector3.new(0, 1, 0))   -- Вверх
-createMoveButton("↓", UDim2.new(0.75, 0, 0.8, 0), Vector3.new(0, -1, 0))  -- Вниз
-createMoveButton("←", UDim2.new(0.6, 0, 0.8, 0), Vector3.new(-1, 0, 0))   -- Влево
-createMoveButton("→", UDim2.new(0.9, 0, 0.8, 0), Vector3.new(1, 0, 0))    -- Вправо
-createMoveButton("Вперёд", UDim2.new(0.75, 0, 0.4, 0), Vector3.new(0, 0, 1))
-
--- ==================== ИНИЦИАЛИЗАЦИЯ ====================
-player.CharacterAdded:Connect(function(char)
-    task.wait(1.5)
-    setupTouch(char)
-    if flying then setupFly(char) end
-end)
-
-if player.Character then
-    task.wait(1.5)
-    setupTouch(player.Character)
-end
-
-flyConnection = RunService.RenderStepped:Connect(updateFly)
-
-print("✅ Superman Fly для ТЕЛЕФОНА загружен! Нажми большую кнопку для полёта.")
+print("Kill On Touch меню загружено! Нажми F4 для быстрого переключения.")
