@@ -25,7 +25,7 @@ TextLabel.Parent = Frame
 TextLabel.BackgroundTransparency = 1
 TextLabel.Size = UDim2.new(1, 0, 0.14, 0)
 TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "Fuck Fling + Fixed Fly"
+TextLabel.Text = "Fuck Fling + Camera Fly"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextLabel.TextSize = 20
 
@@ -89,7 +89,7 @@ local flying = false
 local flingPower = 10000
 local lp = Players.LocalPlayer
 local dragging = false
-local flySpeed = 70
+local flySpeed = 75
 
 -- Anti-detection
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
@@ -98,7 +98,7 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
 	detection.Parent = ReplicatedStorage
 end
 
--- ==================== FIXED FLY (вперёд = вперёд) ====================
+-- ==================== CAMERA FLY (чисто по направлению камеры) ====================
 local bv, bg = nil, nil
 
 local function startFly()
@@ -118,8 +118,8 @@ local function startFly()
 	bg = Instance.new("BodyGyro")
 	bg.Name = "FlyGyro"
 	bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-	bg.P = 15000
-	bg.D = 500
+	bg.P = 20000
+	bg.D = 250
 	bg.Parent = hrp
 	
 	if humanoid then humanoid.PlatformStand = true end
@@ -140,7 +140,7 @@ local function stopFly()
 	FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 end
 
--- **Исправленный** цикл полёта
+-- Основной цикл — **чисто по камере**
 RunService.RenderStepped:Connect(function()
 	if not flying or not bv or not bg then return end
 	
@@ -149,9 +149,10 @@ RunService.RenderStepped:Connect(function()
 	
 	local camera = workspace.CurrentCamera
 	local humanoid = character:FindFirstChild("Humanoid")
+	
 	local moveDir = Vector3.new(0, 0, 0)
 	
-	-- ПК клавиши
+	-- === ПК клавиши ===
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
 		moveDir += camera.CFrame.LookVector
 	end
@@ -171,22 +172,23 @@ RunService.RenderStepped:Connect(function()
 		moveDir -= Vector3.new(0, 1, 0)
 	end
 	
-	-- **Мобильный джойстик — исправлено**
-	if humanoid and humanoid.MoveDirection.Magnitude > 0 then
-		local forward = camera.CFrame.LookVector
-		local right   = camera.CFrame.RightVector
+	-- === Мобильный джойстик (самое важное исправление) ===
+	if humanoid and humanoid.MoveDirection.Magnitude > 0.1 then
+		local camLook = camera.CFrame.LookVector
+		local camRight = camera.CFrame.RightVector
 		
-		-- MoveDirection.Z обычно отрицательный при движении вперёд на мобильных
-		moveDir += forward * (-humanoid.MoveDirection.Z)   -- ВПЕРЁД = ВПЕРЁД
-		moveDir += right   * humanoid.MoveDirection.X      -- Влево/вправо
+		-- MoveDirection.Z почти всегда отрицательный при движении "вперёд" на мобильных
+		moveDir += camLook * (-humanoid.MoveDirection.Z)
+		moveDir += camRight * humanoid.MoveDirection.X
 	end
 	
+	-- Нормализация
 	if moveDir.Magnitude > 0 then
 		moveDir = moveDir.Unit
 	end
 	
 	bv.Velocity = moveDir * flySpeed
-	bg.CFrame = camera.CFrame
+	bg.CFrame = camera.CFrame   -- персонаж всегда смотрит куда камера
 end)
 
 -- ==================== FLING ====================
@@ -274,4 +276,4 @@ end)
 
 fling()
 
-print("Fuck Fling + Fixed Fly загружен! Управление ВПЕРЁД/НАЗАД исправлено.")
+print("✅ Camera Fly исправлен! Летишь строго туда, куда смотрит камера.")
