@@ -1,80 +1,50 @@
--- Touch Fling с Toggle-меню (полностью рабочий для Roblox Executor)
+-- Touch Fling on Touch (без визуала, только реакция на касание твоего персонажа)
+-- Для Roblox Executor
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
-local enabled = false          -- флаг активности
-local flingPart = nil          -- блок-триггер
-local bodyVel = nil
-local cooldown = false
+local enabled = false
+local currentCharacter = nil
+local humanoidRootPart = nil
+local touchConnection = nil
 
--- --- Функция создания блока ---
-local function createFlingPart()
-    if flingPart then flingPart:Destroy() end
-    local part = Instance.new("Part")
-    part.Size = Vector3.new(4, 1, 4)
-    part.Transparency = 1
-    part.CanCollide = false
-    part.Anchored = true
-    part.BrickColor = BrickColor.new("Really black")
-    part.Material = Enum.Material.SmoothPlastic
-    part.Parent = workspace
+-- --- Функция, которая разбрасывает того, кто коснулся ---
+local function flingToucher(toucher)
+    if not enabled then return end
+    local humanoid = toucher.Parent:FindFirstChild("Humanoid")
+    local rootPart = toucher.Parent:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return end
+    -- Не флинговать себя
+    if toucher.Parent == currentCharacter then return end
     
+    -- Создаём временную силу (BodyVelocity)
     local bv = Instance.new("BodyVelocity")
     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bv.Velocity = Vector3.new(0,0,0)
-    bv.Parent = part
+    local direction = (rootPart.Position - humanoidRootPart.Position).unit
+    bv.Velocity = direction * 400 + Vector3.new(0, 120, 0)
+    bv.Parent = rootPart
     
-    -- Обработка касаний
-    part.Touched:Connect(function(hit)
-        if not enabled then return end
-        if cooldown then return end
-        local humanoid = hit.Parent:FindFirstChild("Humanoid")
-        if humanoid and hit.Parent:FindFirstChild("HumanoidRootPart") then
-            local targetRoot = hit.Parent.HumanoidRootPart
-            local direction = (targetRoot.Position - part.Position).unit
-            bv.Velocity = direction * 350 + Vector3.new(0,150,0)
-            cooldown = true
-            task.wait(0.2)
-            bv.Velocity = Vector3.new(0,0,0)
-            task.wait(1)
-            cooldown = false
-        end
-    end)
-    
-    -- Движение блока за мышкой
-    local connection
-    connection = UserInputService.InputChanged:Connect(function(input)
-        if not enabled then 
-            if connection then connection:Disconnect() end
-            return 
-        end
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = UserInputService:GetMouseLocation()
-            local ray = workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y)
-            local rayParams = RaycastParams.new()
-            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-            rayParams.FilterDescendantsInstances = {character, part}
-            local hitResult = workspace:Raycast(ray.Origin, ray.Direction * 500, rayParams)
-            if hitResult then
-                part.Position = hitResult.Position
-            else
-                part.Position = ray.Origin + ray.Direction * 50
-            end
-        end
-    end)
-    
-    return part, bv
+    -- Удаляем через 0.2 секунды, импульс останется
+    task.wait(0.2)
+    bv:Destroy()
 end
 
--- --- Создание GUI ---
+-- --- Обновление отслеживания при смене персонажа ---
+local function setupCharacter(newChar)
+    currentCharacter = newChar
+    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    
+    if touchConnection then touchConnection:Disconnect() end
+    touchConnection = humanoidRootPart.Touched:Connect(flingToucher)
+end
+
+-- --- Создание GUI меню ---
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TouchFlingMenu"
-screenGui.Parent = game:GetService("CoreGui")  -- или player.PlayerGui, но CoreGui надёжнее
+screenGui.Parent = game:GetService("CoreGui")
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 200, 0, 80)
@@ -114,7 +84,7 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 5)
 buttonCorner.Parent = toggleButton
 
--- Анимация наведения
+-- Анимации
 toggleButton.MouseEnter:Connect(function()
     TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(100,100,100)}):Play()
 end)
@@ -130,29 +100,36 @@ end)
 toggleButton.MouseButton1Click:Connect(function()
     enabled = not enabled
     if enabled then
-        flingPart, bodyVel = createFlingPart()
         toggleButton.Text = "ВКЛ"
         toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-        print("[TouchFling] Активирован. Наведи блок на игрока — он улетит.")
+        -- Если персонаж уже есть, включаем отслеживание
+        local char = player.Character
+        if char then setupCharacter(char) end
+        print("[TouchFling] Включён. Теперь любой, кто коснётся тебя, отлетит.")
     else
-        if flingPart then flingPart:Destroy() end
-        flingPart = nil
-        bodyVel = nil
         toggleButton.Text = "ВЫКЛ"
         toggleButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
-        print("[TouchFling] Деактивирован.")
+        if touchConnection then touchConnection:Disconnect() end
+        touchConnection = nil
+        print("[TouchFling] Выключён.")
     end
 end)
 
--- Обновление персонажа при респавне
+-- Следим за появлением персонажа
 player.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     if enabled then
-        -- пересоздаём блок, чтобы обновить фильтр (избежать проблем)
-        if flingPart then flingPart:Destroy() end
-        flingPart, bodyVel = createFlingPart()
+        setupCharacter(newChar)
+    else
+        -- Просто обновляем ссылки, но без подключения
+        currentCharacter = newChar
+        humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
     end
 end)
 
-print("Меню загружено! Нажми на кнопку, чтобы включить/выключить Touch Fling.")
+-- Если персонаж уже существует при старте
+if player.Character then
+    currentCharacter = player.Character
+    humanoidRootPart = currentCharacter:WaitForChild("HumanoidRootPart")
+end
+
+print("Меню загружено. Нажми на кнопку, чтобы включить Touch Fling на касание.")
