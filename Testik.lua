@@ -1,7 +1,10 @@
+-- Обновлённый Fly: теперь летишь **куда смотришь** (камера) + поддержка мобильного джойстика
+-- Более стабильный и плавный полёт для Delta на телефоне
+
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local ToggleButton = Instance.new("TextButton")
-local FlyButton = Instance.new("TextButton")  -- Новая кнопка Fly
+local FlyButton = Instance.new("TextButton")
 local TextLabel = Instance.new("TextLabel")
 local HideButton = Instance.new("TextButton")
 local PowerLabel = Instance.new("TextLabel")
@@ -15,24 +18,23 @@ ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
 Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Frame.Position = UDim2.new(0.35, 0, 0.4, 0)
-Frame.Size = UDim2.new(0, 220, 0, 190)  -- Увеличил высоту
+Frame.Position = UDim2.new(0.35, 0, 0.35, 0)
+Frame.Size = UDim2.new(0, 220, 0, 210)
 Frame.Active = true
 Frame.Draggable = true
 UICorner.Parent = Frame
 
 TextLabel.Parent = Frame
 TextLabel.BackgroundTransparency = 1
-TextLabel.Size = UDim2.new(1, 0, 0.15, 0)
+TextLabel.Size = UDim2.new(1, 0, 0.14, 0)
 TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "Fuck Fling + Fly"
+TextLabel.Text = "Fuck Fling + Better Fly"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextLabel.TextSize = 22
+TextLabel.TextSize = 20
 
--- Fling Toggle
 ToggleButton.Parent = Frame
-ToggleButton.Position = UDim2.new(0.1, 0, 0.22, 0)
-ToggleButton.Size = UDim2.new(0.8, 0, 0.18, 0)
+ToggleButton.Position = UDim2.new(0.1, 0, 0.18, 0)
+ToggleButton.Size = UDim2.new(0.8, 0, 0.16, 0)
 ToggleButton.Font = Enum.Font.SourceSansBold
 ToggleButton.Text = "FLING OFF"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -40,10 +42,9 @@ ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 ToggleButton.TextSize = 20
 UICorner:Clone().Parent = ToggleButton
 
--- Fly Toggle
 FlyButton.Parent = Frame
-FlyButton.Position = UDim2.new(0.1, 0, 0.43, 0)
-FlyButton.Size = UDim2.new(0.8, 0, 0.18, 0)
+FlyButton.Position = UDim2.new(0.1, 0, 0.37, 0)
+FlyButton.Size = UDim2.new(0.8, 0, 0.16, 0)
 FlyButton.Font = Enum.Font.SourceSansBold
 FlyButton.Text = "FLY OFF"
 FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -53,15 +54,15 @@ UICorner:Clone().Parent = FlyButton
 
 PowerLabel.Parent = Frame
 PowerLabel.BackgroundTransparency = 1
-PowerLabel.Position = UDim2.new(0.1, 0, 0.64, 0)
-PowerLabel.Size = UDim2.new(0.8, 0, 0.12, 0)
+PowerLabel.Position = UDim2.new(0.1, 0, 0.57, 0)
+PowerLabel.Size = UDim2.new(0.8, 0, 0.11, 0)
 PowerLabel.Font = Enum.Font.SourceSansBold
 PowerLabel.Text = "Fling Power: 10000"
 PowerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 PowerLabel.TextSize = 18
 
 PowerBar.Parent = Frame
-PowerBar.Position = UDim2.new(0.1, 0, 0.77, 0)
+PowerBar.Position = UDim2.new(0.1, 0, 0.7, 0)
 PowerBar.Size = UDim2.new(0.8, 0, 0.08, 0)
 PowerBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 UICorner:Clone().Parent = PowerBar
@@ -91,6 +92,7 @@ local flying = false
 local flingPower = 10000
 local lp = Players.LocalPlayer
 local dragging = false
+local flySpeed = 70  -- скорость полёта (можно менять)
 
 -- Anti-detection
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
@@ -99,8 +101,8 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
 	detection.Parent = ReplicatedStorage
 end
 
--- ==================== FLY LOGIC ====================
-local bv, bg
+-- ==================== IMPROVED FLY (куда смотришь + мобильный джойстик) ====================
+local bv, bg = nil, nil
 
 local function startFly()
 	if flying then return end
@@ -112,14 +114,15 @@ local function startFly()
 	
 	bv = Instance.new("BodyVelocity")
 	bv.Name = "FlyVelocity"
-	bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 	bv.Velocity = Vector3.new(0, 0, 0)
 	bv.Parent = hrp
 	
 	bg = Instance.new("BodyGyro")
 	bg.Name = "FlyGyro"
-	bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-	bg.P = 12500
+	bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+	bg.P = 15000
+	bg.D = 500
 	bg.Parent = hrp
 	
 	if humanoid then
@@ -142,40 +145,55 @@ local function stopFly()
 	FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 end
 
--- Fly control loop
-local flySpeed = 60
+-- Основной цикл полёта — летишь точно куда смотрит камера
 RunService.RenderStepped:Connect(function()
 	if not flying or not bv or not bg then return end
 	
+	local character = lp.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	local hrp = character.HumanoidRootPart
 	local camera = workspace.CurrentCamera
-	local moveDirection = Vector3.new(0, 0, 0)
+	local humanoid = character:FindFirstChild("Humanoid")
 	
-	-- Управление на телефоне (WASD / стрелки + прыжок)
+	-- Основное направление — куда смотрит камера
+	local moveDir = Vector3.new(0, 0, 0)
+	
+	-- Поддержка клавиш (ПК)
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
-		moveDirection = moveDirection + camera.CFrame.LookVector
+		moveDir = moveDir + camera.CFrame.LookVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
-		moveDirection = moveDirection - camera.CFrame.LookVector
+		moveDir = moveDir - camera.CFrame.LookVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-		moveDirection = moveDirection - camera.CFrame.RightVector
+		moveDir = moveDir - camera.CFrame.RightVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-		moveDirection = moveDirection + camera.CFrame.RightVector
+		moveDir = moveDir + camera.CFrame.RightVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-		moveDirection = moveDirection + Vector3.new(0, 1, 0)
+		moveDir = moveDir + Vector3.new(0, 1, 0)
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-		moveDirection = moveDirection - Vector3.new(0, 1, 0)
+		moveDir = moveDir - Vector3.new(0, 1, 0)
 	end
 	
-	moveDirection = moveDirection.Unit * flySpeed
-	bv.Velocity = moveDirection
-	bg.CFrame = camera.CFrame
+	-- Поддержка мобильного джойстика (Humanoid.MoveDirection)
+	if humanoid and humanoid.MoveDirection.Magnitude > 0 then
+		local camRelative = camera.CFrame:VectorToWorldSpace(humanoid.MoveDirection)
+		moveDir = moveDir + camRelative
+	end
+	
+	-- Нормализуем направление
+	if moveDir.Magnitude > 0 then
+		moveDir = moveDir.Unit
+	end
+	
+	bv.Velocity = moveDir * flySpeed
+	bg.CFrame = camera.CFrame  -- поворачиваем персонажа куда смотрит камера
 end)
 
--- ==================== FLING LOGIC ====================
+-- ==================== FLING LOGIC (оставил почти без изменений) ====================
 local function fling()
 	local hrp, c, vel, movel = nil, nil, nil, 0.1
 	
@@ -255,16 +273,16 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Auto protection
+-- Авто-рестарт после смерти
 lp.CharacterAdded:Connect(function()
-	wait(1)
+	task.wait(1)
 	if flying then
 		stopFly()
-		wait(0.5)
+		task.wait(0.3)
 		startFly()
 	end
 end)
 
 fling()
 
-print("Fuck Fling + Fly загружен! Работает на Delta (телефон).")
+print("Fuck Fling + Better Fly загружен! Теперь летишь точно куда смотрит камера.")
