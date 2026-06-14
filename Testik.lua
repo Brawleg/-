@@ -1,111 +1,270 @@
--- Touch Fling (Safe Version) - Просто ходи и касайся людей
--- Защита: не умираешь, не улетаешь сильно сам
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local lp = Players.LocalPlayer
-local hiddenfling = false
-local flingThread
-
--- Защита от смерти и сильного отлёта (anti-ragdoll / velocity reset)
-local function protectLocalPlayer()
-    if lp.Character then
-        local humanoid = lp.Character:FindFirstChild("Humanoid")
-        local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
-        if humanoid then
-            humanoid.PlatformStand = false
-            humanoid.Sit = false
-            humanoid:ChangeState(Enum.HumanoidStateType.Running)
-        end
-        if hrp then
-            hrp.Velocity = Vector3.new(0, 0, 0) -- сбрасываем лишнюю скорость
-            hrp.RotVelocity = Vector3.new(0, 0, 0)
-        end
-    end
-end
-
--- Основная функция fling
-local function fling()
-    local c, hrp, vel, movel = nil, nil, nil, 0.1
-    
-    while hiddenfling do
-        RunService.Heartbeat:Wait()
-        
-        protectLocalPlayer() -- защита каждый тик
-        
-        c = lp.Character
-        hrp = c and c:FindFirstChild("HumanoidRootPart")
-        
-        if hrp then
-            vel = hrp.Velocity
-            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)  -- мощный импульс
-            RunService.RenderStepped:Wait()
-            hrp.Velocity = vel
-            RunService.Stepped:Wait()
-            hrp.Velocity = vel + Vector3.new(0, movel, 0)
-            movel = -movel
-        end
-    end
-end
-
--- Простая GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = lp:WaitForChild("PlayerGui")
-
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 180, 0, 120)
-Frame.Position = UDim2.new(0.4, 0, 0.3, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.BorderSizePixel = 0
+local ToggleButton = Instance.new("TextButton")
+local FlyButton = Instance.new("TextButton")  -- Новая кнопка Fly
+local TextLabel = Instance.new("TextLabel")
+local HideButton = Instance.new("TextButton")
+local PowerLabel = Instance.new("TextLabel")
+local PowerSlider = Instance.new("TextButton")
+local PowerBar = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+Frame.Size = UDim2.new(0, 220, 0, 190)  -- Увеличил высоту
 Frame.Active = true
 Frame.Draggable = true
-Frame.Parent = ScreenGui
+UICorner.Parent = Frame
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Title.Text = "Touch Fling"
-Title.TextColor3 = Color3.fromRGB(0, 255, 100)
-Title.TextScaled = true
-Title.Parent = Frame
+TextLabel.Parent = Frame
+TextLabel.BackgroundTransparency = 1
+TextLabel.Size = UDim2.new(1, 0, 0.15, 0)
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Text = "Fuck Fling + Fly"
+TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.TextSize = 22
 
-local Toggle = Instance.new("TextButton")
-Toggle.Size = UDim2.new(0.8, 0, 0, 50)
-Toggle.Position = UDim2.new(0.1, 0, 0.4, 0)
-Toggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-Toggle.Text = "OFF"
-Toggle.TextColor3 = Color3.new(1,1,1)
-Toggle.TextScaled = true
-Toggle.Parent = Frame
+-- Fling Toggle
+ToggleButton.Parent = Frame
+ToggleButton.Position = UDim2.new(0.1, 0, 0.22, 0)
+ToggleButton.Size = UDim2.new(0.8, 0, 0.18, 0)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "FLING OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+ToggleButton.TextSize = 20
+UICorner:Clone().Parent = ToggleButton
 
--- Детект для некоторых анти-читов
+-- Fly Toggle
+FlyButton.Parent = Frame
+FlyButton.Position = UDim2.new(0.1, 0, 0.43, 0)
+FlyButton.Size = UDim2.new(0.8, 0, 0.18, 0)
+FlyButton.Font = Enum.Font.SourceSansBold
+FlyButton.Text = "FLY OFF"
+FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+FlyButton.TextSize = 20
+UICorner:Clone().Parent = FlyButton
+
+PowerLabel.Parent = Frame
+PowerLabel.BackgroundTransparency = 1
+PowerLabel.Position = UDim2.new(0.1, 0, 0.64, 0)
+PowerLabel.Size = UDim2.new(0.8, 0, 0.12, 0)
+PowerLabel.Font = Enum.Font.SourceSansBold
+PowerLabel.Text = "Fling Power: 10000"
+PowerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PowerLabel.TextSize = 18
+
+PowerBar.Parent = Frame
+PowerBar.Position = UDim2.new(0.1, 0, 0.77, 0)
+PowerBar.Size = UDim2.new(0.8, 0, 0.08, 0)
+PowerBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+UICorner:Clone().Parent = PowerBar
+
+PowerSlider.Parent = PowerBar
+PowerSlider.Size = UDim2.new(0.1, 0, 1, 0)
+PowerSlider.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+UICorner:Clone().Parent = PowerSlider
+
+HideButton.Parent = ScreenGui
+HideButton.Position = UDim2.new(0.05, 0, 0.9, 0)
+HideButton.Size = UDim2.new(0, 50, 0, 30)
+HideButton.Font = Enum.Font.SourceSansBold
+HideButton.Text = "x"
+HideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HideButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+UICorner:Clone().Parent = HideButton
+
+-- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local hiddenfling = false
+local flying = false
+local flingPower = 10000
+local lp = Players.LocalPlayer
+local dragging = false
+
+-- Anti-detection
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local decal = Instance.new("Decal")
-    decal.Name = "juisdfj0i32i0eidsuf0iok"
-    decal.Parent = ReplicatedStorage
+	local detection = Instance.new("Decal")
+	detection.Name = "juisdfj0i32i0eidsuf0iok"
+	detection.Parent = ReplicatedStorage
 end
 
-Toggle.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    Toggle.Text = hiddenfling and "ON" or "OFF"
-    Toggle.BackgroundColor3 = hiddenfling and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
-    
-    if hiddenfling then
-        flingThread = coroutine.create(fling)
-        coroutine.resume(flingThread)
-    else
-        hiddenfling = false
-        protectLocalPlayer()
-    end
+-- ==================== FLY LOGIC ====================
+local bv, bg
+
+local function startFly()
+	if flying then return end
+	local character = lp.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	
+	local hrp = character.HumanoidRootPart
+	local humanoid = character:FindFirstChild("Humanoid")
+	
+	bv = Instance.new("BodyVelocity")
+	bv.Name = "FlyVelocity"
+	bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bv.Velocity = Vector3.new(0, 0, 0)
+	bv.Parent = hrp
+	
+	bg = Instance.new("BodyGyro")
+	bg.Name = "FlyGyro"
+	bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	bg.P = 12500
+	bg.Parent = hrp
+	
+	if humanoid then
+		humanoid.PlatformStand = true
+	end
+	
+	flying = true
+	FlyButton.Text = "FLY ON"
+	FlyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+end
+
+local function stopFly()
+	if bv then bv:Destroy() bv = nil end
+	if bg then bg:Destroy() bg = nil end
+	if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+		lp.Character.Humanoid.PlatformStand = false
+	end
+	flying = false
+	FlyButton.Text = "FLY OFF"
+	FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+end
+
+-- Fly control loop
+local flySpeed = 60
+RunService.RenderStepped:Connect(function()
+	if not flying or not bv or not bg then return end
+	
+	local camera = workspace.CurrentCamera
+	local moveDirection = Vector3.new(0, 0, 0)
+	
+	-- Управление на телефоне (WASD / стрелки + прыжок)
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
+		moveDirection = moveDirection + camera.CFrame.LookVector
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
+		moveDirection = moveDirection - camera.CFrame.LookVector
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
+		moveDirection = moveDirection - camera.CFrame.RightVector
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+		moveDirection = moveDirection + camera.CFrame.RightVector
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		moveDirection = moveDirection + Vector3.new(0, 1, 0)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+		moveDirection = moveDirection - Vector3.new(0, 1, 0)
+	end
+	
+	moveDirection = moveDirection.Unit * flySpeed
+	bv.Velocity = moveDirection
+	bg.CFrame = camera.CFrame
 end)
 
--- Авто-защита при респавне
+-- ==================== FLING LOGIC ====================
+local function fling()
+	local hrp, c, vel, movel = nil, nil, nil, 0.1
+	
+	while true do
+		RunService.Heartbeat:Wait()
+		if hiddenfling then
+			while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
+				RunService.Heartbeat:Wait()
+				c = lp.Character
+				hrp = c and c:FindFirstChild("HumanoidRootPart")
+			end
+
+			if hiddenfling and hrp then
+				vel = hrp.Velocity
+				hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
+				RunService.RenderStepped:Wait()
+				if hrp and hrp.Parent then
+					hrp.Velocity = vel
+				end
+				RunService.Stepped:Wait()
+				if hrp and hrp.Parent then
+					hrp.Velocity = vel + Vector3.new(0, movel, 0)
+					movel = movel * -1
+				end
+			end
+		end
+	end
+end
+
+-- ==================== BUTTONS ====================
+ToggleButton.MouseButton1Click:Connect(function()
+	hiddenfling = not hiddenfling
+	if hiddenfling then
+		ToggleButton.Text = "FLING ON"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+	else
+		ToggleButton.Text = "FLING OFF"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+	end
+end)
+
+FlyButton.MouseButton1Click:Connect(function()
+	if flying then
+		stopFly()
+	else
+		startFly()
+	end
+end)
+
+HideButton.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
+
+-- Power Slider
+PowerSlider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+	end
+end)
+
+PowerSlider.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local mousePos = input.Position.X
+		local barPos = PowerBar.AbsolutePosition.X
+		local barSize = PowerBar.AbsoluteSize.X
+		local newPos = math.clamp((mousePos - barPos) / barSize, 0, 1)
+		
+		PowerSlider.Position = UDim2.new(newPos, 0, 0, 0)
+		flingPower = math.floor(newPos * 50000) + 5000
+		PowerLabel.Text = "Fling Power: " .. flingPower
+	end
+end)
+
+-- Auto protection
 lp.CharacterAdded:Connect(function()
-    wait(1)
-    protectLocalPlayer()
+	wait(1)
+	if flying then
+		stopFly()
+		wait(0.5)
+		startFly()
+	end
 end)
 
-print("Touch Fling загружен! Включи и просто ходи в людей.")
+fling()
+
+print("Fuck Fling + Fly загружен! Работает на Delta (телефон).")
