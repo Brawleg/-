@@ -1,0 +1,158 @@
+-- Touch Fling с Toggle-меню (полностью рабочий для Roblox Executor)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local enabled = false          -- флаг активности
+local flingPart = nil          -- блок-триггер
+local bodyVel = nil
+local cooldown = false
+
+-- --- Функция создания блока ---
+local function createFlingPart()
+    if flingPart then flingPart:Destroy() end
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(4, 1, 4)
+    part.Transparency = 1
+    part.CanCollide = false
+    part.Anchored = true
+    part.BrickColor = BrickColor.new("Really black")
+    part.Material = Enum.Material.SmoothPlastic
+    part.Parent = workspace
+    
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.new(0,0,0)
+    bv.Parent = part
+    
+    -- Обработка касаний
+    part.Touched:Connect(function(hit)
+        if not enabled then return end
+        if cooldown then return end
+        local humanoid = hit.Parent:FindFirstChild("Humanoid")
+        if humanoid and hit.Parent:FindFirstChild("HumanoidRootPart") then
+            local targetRoot = hit.Parent.HumanoidRootPart
+            local direction = (targetRoot.Position - part.Position).unit
+            bv.Velocity = direction * 350 + Vector3.new(0,150,0)
+            cooldown = true
+            task.wait(0.2)
+            bv.Velocity = Vector3.new(0,0,0)
+            task.wait(1)
+            cooldown = false
+        end
+    end)
+    
+    -- Движение блока за мышкой
+    local connection
+    connection = UserInputService.InputChanged:Connect(function(input)
+        if not enabled then 
+            if connection then connection:Disconnect() end
+            return 
+        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = UserInputService:GetMouseLocation()
+            local ray = workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y)
+            local rayParams = RaycastParams.new()
+            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+            rayParams.FilterDescendantsInstances = {character, part}
+            local hitResult = workspace:Raycast(ray.Origin, ray.Direction * 500, rayParams)
+            if hitResult then
+                part.Position = hitResult.Position
+            else
+                part.Position = ray.Origin + ray.Direction * 50
+            end
+        end
+    end)
+    
+    return part, bv
+end
+
+-- --- Создание GUI ---
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TouchFlingMenu"
+screenGui.Parent = game:GetService("CoreGui")  -- или player.PlayerGui, но CoreGui надёжнее
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 80)
+frame.Position = UDim2.new(0.5, -100, 0.5, -40)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Touch Fling"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 160, 0, 35)
+toggleButton.Position = UDim2.new(0.5, -80, 0, 40)
+toggleButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+toggleButton.Text = "ВЫКЛ"
+toggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+toggleButton.TextSize = 16
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.Parent = frame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 5)
+buttonCorner.Parent = toggleButton
+
+-- Анимация наведения
+toggleButton.MouseEnter:Connect(function()
+    TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(100,100,100)}):Play()
+end)
+toggleButton.MouseLeave:Connect(function()
+    if enabled then
+        TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0,150,0)}):Play()
+    else
+        TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(70,70,70)}):Play()
+    end
+end)
+
+-- Логика вкл/выкл
+toggleButton.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    if enabled then
+        flingPart, bodyVel = createFlingPart()
+        toggleButton.Text = "ВКЛ"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+        print("[TouchFling] Активирован. Наведи блок на игрока — он улетит.")
+    else
+        if flingPart then flingPart:Destroy() end
+        flingPart = nil
+        bodyVel = nil
+        toggleButton.Text = "ВЫКЛ"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+        print("[TouchFling] Деактивирован.")
+    end
+end)
+
+-- Обновление персонажа при респавне
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    if enabled then
+        -- пересоздаём блок, чтобы обновить фильтр (избежать проблем)
+        if flingPart then flingPart:Destroy() end
+        flingPart, bodyVel = createFlingPart()
+    end
+end)
+
+print("Меню загружено! Нажми на кнопку, чтобы включить/выключить Touch Fling.")
