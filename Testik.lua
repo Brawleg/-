@@ -1,9 +1,7 @@
--- ✅ Touch Fling (Другие отлетают при касании ТЕБЯ) для Delta Executor
--- Ты стоишь стабильно, а кто тебя коснётся — улетает
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local Debris = game:GetService("Debris")
 
 local lp = Players.LocalPlayer
 local enabled = false
@@ -13,31 +11,55 @@ local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
 end
 
+local function clearSelfForces()
+    local char = lp.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BodyVelocity") or part:IsA("BodyAngularVelocity") or part:IsA("BodyForce") then
+            part:Destroy()
+        end
+    end
+end
+
 local function flingPlayer(otherChar)
     if not otherChar or otherChar == lp.Character then return end
-    local root = getRoot(otherChar)
-    if not root then return end
     
-    -- Мощный fling на другого игрока
+    local root = getRoot(otherChar)
+    local myRoot = getRoot(lp.Character)
+    if not root or not myRoot then return end
+    
+    -- Мощный fling на другого
     local bv = Instance.new("BodyVelocity")
     bv.Name = "TouchFlingBV"
     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bv.Velocity = (root.Position - lp.Character.HumanoidRootPart.Position).Unit * 300 + Vector3.new(0, 100, 0)
+    bv.Velocity = (root.Position - myRoot.Position).Unit * 300 + Vector3.new(0, 80, 0) -- чуть слабее вверх
     bv.Parent = root
     
-    game.Debris:AddItem(bv, 0.6) -- Убираем через время
+    Debris:AddItem(bv, 0.5)
 end
 
 local function setupCharacter(char)
     if not char then return end
-    task.wait(1) -- Ждём прогрузки
+    task.wait(1)
+    
+    -- Удаляем старые соединения
+    for _, conn in ipairs(connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    connections = {}
     
     for _, part in ipairs(char:GetChildren()) do
         if part:IsA("BasePart") then
             local conn = part.Touched:Connect(function(hit)
                 if not enabled then return end
-                local otherChar = hit.Parent
-                if otherChar and otherChar:FindFirstChild("Humanoid") and otherChar ~= char then
+                
+                -- Более надёжная проверка персонажа
+                local otherChar = hit:FindFirstAncestorWhichIsA("Model")
+                if not otherChar then 
+                    otherChar = hit.Parent 
+                end
+                
+                if otherChar and otherChar:FindFirstChild("Humanoid") and otherChar ~= lp.Character then
                     flingPlayer(otherChar)
                 end
             end)
@@ -81,16 +103,19 @@ Toggle.Parent = Frame
 
 Toggle.MouseButton1Click:Connect(function()
     enabled = not enabled
+    
     Toggle.Text = enabled and "ON" or "OFF"
     Toggle.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+    
+    -- При выключении сразу очищаем все силы с себя
+    if not enabled then
+        clearSelfForces()
+    end
 end)
 
 -- Переподключение при респавне
 lp.CharacterAdded:Connect(function(char)
-    for _, conn in ipairs(connections) do
-        pcall(function() conn:Disconnect() end)
-    end
-    connections = {}
+    clearSelfForces()
     setupCharacter(char)
 end)
 
@@ -98,4 +123,4 @@ if lp.Character then
     setupCharacter(lp.Character)
 end
 
-print("✅ Touch Fling (Reverse) загружен! Теперь другие отлетают, когда касаются тебя.")
+print("✅ Touch Fling (Reverse) загружен и исправлен! Теперь ты не должен отлетать при выключении.")
