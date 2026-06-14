@@ -1,4 +1,4 @@
--- Touch Fling on Touch (без визуала, только реакция на касание твоего персонажа)
+-- Touch Fling (супердальний отброс, без отдачи на себя)
 -- Для Roblox Executor
 
 local Players = game:GetService("Players")
@@ -11,25 +11,54 @@ local currentCharacter = nil
 local humanoidRootPart = nil
 local touchConnection = nil
 
--- --- Функция, которая разбрасывает того, кто коснулся ---
+-- --- Функция, которая ОЧЕНЬ ДАЛЕКО отбрасывает коснувшегося ---
 local function flingToucher(toucher)
     if not enabled then return end
+    
     local humanoid = toucher.Parent:FindFirstChild("Humanoid")
     local rootPart = toucher.Parent:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
-    -- Не флинговать себя
+    
+    -- Не трогаем себя (чтобы ты сам не отлетал)
     if toucher.Parent == currentCharacter then return end
     
-    -- Создаём временную силу (BodyVelocity)
+    -- Отключаем гравитацию на мгновение, чтобы улетел гарантированно
+    local originalGravity = workspace.Gravity
+    workspace.Gravity = 0
+    
+    -- Создаём мощный BodyVelocity
     local bv = Instance.new("BodyVelocity")
     bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    
+    -- Вектор ОТ тебя (от твоего центра)
     local direction = (rootPart.Position - humanoidRootPart.Position).unit
-    bv.Velocity = direction * 400 + Vector3.new(0, 120, 0)
+    -- ОГРОМНАЯ сила + сильный вертикальный подброс
+    bv.Velocity = direction * 9000 + Vector3.new(0, 500, 0)
     bv.Parent = rootPart
     
-    -- Удаляем через 0.2 секунды, импульс останется
-    task.wait(0.2)
+    -- Добавляем ещё и импульс через BodyAngularVelocity (для кувыркания)
+    local bav = Instance.new("BodyAngularVelocity")
+    bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bav.AngularVelocity = Vector3.new(50, 50, 50)
+    bav.Parent = rootPart
+    
+    -- Держим силу 0.3 секунды
+    task.wait(0.3)
     bv:Destroy()
+    bav:Destroy()
+    
+    -- Возвращаем гравитацию
+    workspace.Gravity = originalGravity
+    
+    -- Дополнительно: ломаем коллизии, чтобы не тормозился об стены
+    task.wait(0.1)
+    if rootPart and rootPart.Parent then
+        rootPart.CanCollide = false
+        task.wait(1.5)
+        if rootPart and rootPart.Parent then
+            rootPart.CanCollide = true
+        end
+    end
 end
 
 -- --- Обновление отслеживания при смене персонажа ---
@@ -102,16 +131,15 @@ toggleButton.MouseButton1Click:Connect(function()
     if enabled then
         toggleButton.Text = "ВКЛ"
         toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-        -- Если персонаж уже есть, включаем отслеживание
         local char = player.Character
         if char then setupCharacter(char) end
-        print("[TouchFling] Включён. Теперь любой, кто коснётся тебя, отлетит.")
+        print("[TouchFling] ВКЛ. Ты НЕ отлетаешь. Кого коснёшься — улетит за горизонт.")
     else
         toggleButton.Text = "ВЫКЛ"
         toggleButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
         if touchConnection then touchConnection:Disconnect() end
         touchConnection = nil
-        print("[TouchFling] Выключён.")
+        print("[TouchFling] ВЫКЛ.")
     end
 end)
 
@@ -120,16 +148,14 @@ player.CharacterAdded:Connect(function(newChar)
     if enabled then
         setupCharacter(newChar)
     else
-        -- Просто обновляем ссылки, но без подключения
         currentCharacter = newChar
         humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
     end
 end)
 
--- Если персонаж уже существует при старте
 if player.Character then
     currentCharacter = player.Character
     humanoidRootPart = currentCharacter:WaitForChild("HumanoidRootPart")
 end
 
-print("Меню загружено. Нажми на кнопку, чтобы включить Touch Fling на касание.")
+print("Меню загружено. Нажми ВКЛ и касайся врагов — они улетят максимально далеко.")
