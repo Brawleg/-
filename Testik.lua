@@ -1,72 +1,100 @@
--- Touch Fling (Hidden Fling) с GUI
--- Работает в большинстве executors (Delta, Fluxus, Solara и т.д.)
+-- Touch Fling + Immortality (God Mode) только для тебя
+-- Полностью рабочий
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local lp = Players.LocalPlayer
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local Frame_2 = Instance.new("Frame")
-local TextLabel = Instance.new("TextLabel")
-local TextButton = Instance.new("TextButton")
+local Title = Instance.new("TextLabel")
+local FlingButton = Instance.new("TextButton")
+local ImmortalityLabel = Instance.new("TextLabel")
 
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = lp:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
 Frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.3885, 0, 0.4278, 0)
-Frame.Size = UDim2.new(0, 158, 0, 110)
+Frame.Position = UDim2.new(0.3885, 0, 0.35, 0)
+Frame.Size = UDim2.new(0, 170, 0, 160)
+Frame.Active = true
+Frame.Draggable = true
 
 Frame_2.Parent = Frame
 Frame_2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Frame_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame_2.BorderSizePixel = 0
-Frame_2.Size = UDim2.new(0, 158, 0, 25)
+Frame_2.Size = UDim2.new(1, 0, 0, 30)
 
-TextLabel.Parent = Frame_2
-TextLabel.BackgroundTransparency = 1
-TextLabel.Position = UDim2.new(0.1128, 0, -0.0152, 0)
-TextLabel.Size = UDim2.new(0, 121, 0, 26)
-TextLabel.Font = Enum.Font.Sarpanch
-TextLabel.Text = "Touch Fling"
-TextLabel.TextColor3 = Color3.fromRGB(0, 0, 255)
-TextLabel.TextSize = 25
+Title.Parent = Frame_2
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Font = Enum.Font.Sarpanch
+Title.Text = "Touch Fling + GodMode"
+Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.TextSize = 18
 
-TextButton.Parent = Frame
-TextButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TextButton.Position = UDim2.new(0.1139, 0, 0.4182, 0)
-TextButton.Size = UDim2.new(0, 121, 0, 37)
-TextButton.Font = Enum.Font.SourceSansItalic
-TextButton.Text = "OFF"
-TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-TextButton.TextSize = 20
+FlingButton.Parent = Frame
+FlingButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+FlingButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+FlingButton.Size = UDim2.new(0.8, 0, 0, 40)
+FlingButton.Font = Enum.Font.SourceSansBold
+FlingButton.Text = "Fling: OFF"
+FlingButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+FlingButton.TextSize = 18
 
--- Логика скрипта
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
+ImmortalityLabel.Parent = Frame
+ImmortalityLabel.BackgroundTransparency = 1
+ImmortalityLabel.Position = UDim2.new(0.1, 0, 0.7, 0)
+ImmortalityLabel.Size = UDim2.new(0.8, 0, 0, 30)
+ImmortalityLabel.Font = Enum.Font.SourceSans
+ImmortalityLabel.Text = "GodMode: ON"
+ImmortalityLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+ImmortalityLabel.TextSize = 18
 
-local toggleButton = TextButton
+-- ==================== БЕССМЕРТИЕ ====================
+local immortalityEnabled = true
+
+local function applyImmortality(character)
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.MaxHealth = math.huge
+        humanoid.Health = math.huge
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        
+        -- Дополнительная защита
+        spawn(function()
+            while immortalityEnabled and character.Parent do
+                if humanoid.Health < humanoid.MaxHealth then
+                    humanoid.Health = math.huge
+                end
+                RunService.Heartbeat:Wait()
+            end
+        end)
+    end
+end
+
+-- Применяем бессмертие при респавне
+lp.CharacterAdded:Connect(applyImmortality)
+
+-- Применяем на текущий персонаж
+if lp.Character then
+    applyImmortality(lp.Character)
+end
+
+-- ==================== TOUCH FLING ====================
 local hiddenfling = false
 local flingThread
 
--- Создаём детект (чтобы некоторые анти-читы не реагировали)
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local detection = Instance.new("Decal")
-    detection.Name = "juisdfj0i32i0eidsuf0iok"
-    detection.Parent = ReplicatedStorage
-end
-
 local function fling()
-    local lp = Players.LocalPlayer
     local c, hrp, vel, movel = nil, nil, nil, 0.1
-
     while hiddenfling do
         RunService.Heartbeat:Wait()
         c = lp.Character
         hrp = c and c:FindFirstChild("HumanoidRootPart")
-
+        
         if hrp then
             vel = hrp.Velocity
             hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
@@ -79,20 +107,22 @@ local function fling()
     end
 end
 
-toggleButton.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    toggleButton.Text = hiddenfling and "ON" or "OFF"
+-- Детект
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local d = Instance.new("Decal")
+    d.Name = "juisdfj0i32i0eidsuf0iok"
+    d.Parent = ReplicatedStorage
+end
 
+FlingButton.MouseButton1Click:Connect(function()
+    hiddenfling = not hiddenfling
+    FlingButton.Text = "Fling: " .. (hiddenfling and "ON" or "OFF")
+    
     if hiddenfling then
         flingThread = coroutine.create(fling)
         coroutine.resume(flingThread)
-    else
-        hiddenfling = false
     end
 end)
 
--- Делаем окно перетаскиваемым
-Frame.Active = true
-Frame.Draggable = true
-
-print("Touch Fling загружен! Нажми кнопку для включения.")
+print("✅ Touch Fling + GodMode загружен!")
+print("Бессмертие работает только для тебя.")
