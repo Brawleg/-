@@ -1,149 +1,147 @@
--- Touch Fling + Бессмертие + Anti-Ragdoll (Не умираешь и не рассыпаешься)
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local lp = Players.LocalPlayer
-local hiddenfling = false
-local flingThread
-
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
-local Frame_2 = Instance.new("Frame")
+local ToggleButton = Instance.new("TextButton")
 local TextLabel = Instance.new("TextLabel")
-local TextButton = Instance.new("TextButton")
+local HideButton = Instance.new("TextButton")
+local PowerLabel = Instance.new("TextLabel")
+local PowerSlider = Instance.new("TextButton")
+local PowerBar = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
 
-ScreenGui.Parent = lp:WaitForChild("PlayerGui")
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
-Frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BorderSizePixel = 0
-Frame.Position = UDim2.new(0.3885, 0, 0.4278, 0)
-Frame.Size = UDim2.new(0, 158, 0, 140)
-
-Frame_2.Parent = Frame
-Frame_2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Frame_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame_2.BorderSizePixel = 0
-Frame_2.Size = UDim2.new(0, 158, 0, 25)
-
-TextLabel.Parent = Frame_2
-TextLabel.BackgroundTransparency = 1
-TextLabel.Position = UDim2.new(0.1128, 0, -0.0152, 0)
-TextLabel.Size = UDim2.new(0, 121, 0, 26)
-TextLabel.Font = Enum.Font.Sarpanch
-TextLabel.Text = "Touch Fling"
-TextLabel.TextColor3 = Color3.fromRGB(0, 0, 255)
-TextLabel.TextSize = 25
-
-TextButton.Parent = Frame
-TextButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-TextButton.Position = UDim2.new(0.1139, 0, 0.35, 0)
-TextButton.Size = UDim2.new(0, 121, 0, 37)
-TextButton.Font = Enum.Font.SourceSansItalic
-TextButton.Text = "OFF"
-TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
-TextButton.TextSize = 20
-
--- ==================== БЕССМЕРТИЕ + ANTI-RAGDOLL ====================
-local function fixCharacter(character)
-    if not character then return end
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    
-    if humanoid then
-        humanoid.MaxHealth = 1e9
-        humanoid.Health = 1e9
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
-        humanoid.PlatformStand = false
-    end
-
-    -- Восстанавливаем суставы, чтобы не рассыпаться
-    for _, v in ipairs(character:GetDescendants()) do
-        if v:IsA("Motor6D") or v:IsA("BallSocketConstraint") then
-            v.Enabled = true
-        end
-        if v:IsA("BasePart") then
-            v.CanCollide = true
-        end
-    end
-end
-
--- Постоянная защита
-local antiRagdollLoop = RunService.Heartbeat:Connect(function()
-    if lp.Character then
-        fixCharacter(lp.Character)
-    end
-end)
-
-lp.CharacterAdded:Connect(function(char)
-    task.wait(0.6)
-    fixCharacter(char)
-end)
-
-if lp.Character then
-    task.wait(0.6)
-    fixCharacter(lp.Character)
-end
-
--- ==================== TOUCH FLING ====================
-local function fling()
-    while hiddenfling do
-        RunService.Heartbeat:Wait()
-        local c = lp.Character
-        local hrp = c and c:FindFirstChild("HumanoidRootPart")
-        
-        if hrp then
-            local vel = hrp.Velocity
-            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-            RunService.RenderStepped:Wait()
-            hrp.Velocity = vel
-            RunService.Stepped:Wait()
-            hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
-        end
-    end
-end
-
-local function stopFlingSafely()
-    hiddenfling = false
-    local c = lp.Character
-    if c then
-        local hrp = c:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Velocity = Vector3.new(0, 0, 0)
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-        end
-    end
-end
-
--- Детект
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local detection = Instance.new("Decal")
-    detection.Name = "juisdfj0i32i0eidsuf0iok"
-    detection.Parent = ReplicatedStorage
-end
-
-TextButton.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    TextButton.Text = hiddenfling and "ON" or "OFF"
-
-    if hiddenfling then
-        flingThread = coroutine.create(fling)
-        coroutine.resume(flingThread)
-    else
-        stopFlingSafely()
-    end
-end)
-
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+Frame.Size = UDim2.new(0, 220, 0, 150)
 Frame.Active = true
 Frame.Draggable = true
+UICorner.Parent = Frame
 
-print("✅ Touch Fling + Бессмертие + Anti-Ragdoll загружен!")
-print("Теперь ты не должен рассыпаться и умирать при выключении.")
+TextLabel.Parent = Frame
+TextLabel.BackgroundTransparency = 1
+TextLabel.Size = UDim2.new(1, 0, 0.2, 0)
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Text = "Touch Fling"
+TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.TextSize = 22
+
+ToggleButton.Parent = Frame
+ToggleButton.Position = UDim2.new(0.1, 0, 0.3, 0)
+ToggleButton.Size = UDim2.new(0.8, 0, 0.2, 0)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+ToggleButton.TextSize = 24
+UICorner:Clone().Parent = ToggleButton
+
+PowerLabel.Parent = Frame
+PowerLabel.BackgroundTransparency = 1
+PowerLabel.Position = UDim2.new(0.1, 0, 0.55, 0)
+PowerLabel.Size = UDim2.new(0.8, 0, 0.15, 0)
+PowerLabel.Font = Enum.Font.SourceSansBold
+PowerLabel.Text = "Fling Power: 10000"
+PowerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PowerLabel.TextSize = 18
+
+PowerBar.Parent = Frame
+PowerBar.Position = UDim2.new(0.1, 0, 0.7, 0)
+PowerBar.Size = UDim2.new(0.8, 0, 0.1, 0)
+PowerBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+UICorner:Clone().Parent = PowerBar
+PowerSlider.Parent = PowerBar
+PowerSlider.Size = UDim2.new(0.1, 0, 1, 0)
+PowerSlider.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+UICorner:Clone().Parent = PowerSlider
+
+HideButton.Parent = ScreenGui
+HideButton.Position = UDim2.new(0.05, 0, 0.9, 0)
+HideButton.Size = UDim2.new(0, 50, 0, 30)
+HideButton.Font = Enum.Font.SourceSansBold
+HideButton.Text = "x"
+HideButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+HideButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+UICorner:Clone().Parent = HideButton
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local hiddenfling = false
+local flingPower = 10000
+local lp = Players.LocalPlayer
+local dragging = false
+
+local function fling()
+	local hrp, c, vel, movel = nil, nil, nil, 0.1
+	
+	while true do
+		RunService.Heartbeat:Wait()
+		if hiddenfling then
+			while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
+				RunService.Heartbeat:Wait()
+				c = lp.Character
+				hrp = c and c:FindFirstChild("HumanoidRootPart")
+			end
+
+			if hiddenfling then
+				vel = hrp.Velocity
+				hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
+				RunService.RenderStepped:Wait()
+				if c and c.Parent and hrp and hrp.Parent then
+					hrp.Velocity = vel
+				end
+				RunService.Stepped:Wait()
+				if c and c.Parent and hrp and hrp.Parent then
+					hrp.Velocity = vel + Vector3.new(0, movel, 0)
+					movel = movel * -1
+				end
+			end
+		end
+	end
+end
+
+ToggleButton.MouseButton1Click:Connect(function()
+	hiddenfling = not hiddenfling
+	if hiddenfling then
+		ToggleButton.Text = "ON"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+	else
+		ToggleButton.Text = "OFF"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+	end
+end)
+
+HideButton.MouseButton1Click:Connect(function()
+	Frame.Visible = not Frame.Visible
+end)
+
+PowerSlider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+	end
+end)
+
+PowerSlider.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local mousePos = input.Position.X
+		local barPos = PowerBar.AbsolutePosition.X
+		local barSize = PowerBar.AbsoluteSize.X
+		local newPos = math.clamp((mousePos - barPos) / barSize, 0, 1)
+		
+		PowerSlider.Position = UDim2.new(newPos, 0, 0, 0)
+		flingPower = math.floor(newPos * 50000) + 5000
+		PowerLabel.Text = "Fling Power: " .. flingPower
+	end
+end)
+
+fling()
