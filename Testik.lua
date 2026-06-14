@@ -1,6 +1,6 @@
--- === KILL MENU (Explosion Knockback) для Executor Roblox ===
--- Включи/выключи "Kills" — вокруг тебя взрыв и всех откидывает ОЧЕНЬ далеко
--- Работает на большинстве executors (Synapse, Fluxus, Wave и т.д.)
+-- === KILL MENU (Мощный Knockback + Godmode) для Executor Roblox ===
+-- Все вокруг очень сильно отлетают от тебя
+-- Ты бессмертный и не отлетаешь сам
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -9,15 +9,36 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local enabled = false
 local loopConnection = nil
+local godmodeConnection = nil
 
--- === Создаём красивое меню ===
+-- === Godmode (Бессмертие) ===
+local function enableGodmode()
+    if godmodeConnection then return end
+    
+    godmodeConnection = RunService.Heartbeat:Connect(function()
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            local hum = player.Character.Humanoid
+            hum.MaxHealth = 1e9
+            hum.Health = 1e9
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        end
+    end)
+end
+
+local function disableGodmode()
+    if godmodeConnection then
+        godmodeConnection:Disconnect()
+        godmodeConnection = nil
+    end
+end
+
+-- === Создаём меню ===
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KillMenu"
+ScreenGui.Name = "KnockbackMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 280, 0, 160)
 MainFrame.Position = UDim2.new(0.5, -140, 0.3, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -33,8 +54,8 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundTransparency = 1
-Title.Text = "KILL MENU"
-Title.TextColor3 = Color3.fromRGB(255, 80, 80)
+Title.Text = "KNOCKBACK MENU"
+Title.TextColor3 = Color3.fromRGB(255, 100, 100)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 Title.Parent = MainFrame
@@ -43,7 +64,7 @@ local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(0.85, 0, 0, 50)
 ToggleButton.Position = UDim2.new(0.075, 0, 0.45, 0)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-ToggleButton.Text = "Kills: OFF"
+ToggleButton.Text = "Knockback: OFF"
 ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.TextScaled = true
 ToggleButton.Font = Enum.Font.GothamSemibold
@@ -63,64 +84,62 @@ StatusLabel.TextScaled = true
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.Parent = MainFrame
 
--- === Логика взрыва ===
-local function createBigExplosion()
+-- === Мощный Knockback (без взрыва) ===
+local function applyKnockback()
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         return
     end
 
     local root = player.Character.HumanoidRootPart
-    local explosion = Instance.new("Explosion")
-    
-    explosion.Position = root.Position + Vector3.new(0, 5, 0)  -- немного выше, чтобы лучше разлетались
-    explosion.BlastRadius = 80
-    explosion.BlastPressure = 5000000  -- очень сильный отлет
-    explosion.Visible = true
-    explosion.Parent = workspace
-    
-    -- Дополнительный импульс (на случай если обычный взрыв не сильно откидывает)
+    local myPos = root.Position
+
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local otherRoot = plr.Character.HumanoidRootPart
-            local distance = (otherRoot.Position - root.Position).Magnitude
-            if distance < 70 and distance > 3 then
-                local direction = (otherRoot.Position - root.Position).Unit
-                local force = direction * (120000 / math.max(distance, 10))
+            local distance = (otherRoot.Position - myPos).Magnitude
+            
+            if distance < 100 and distance > 4 then
+                local direction = (otherRoot.Position - myPos).Unit
                 
+                -- Очень сильный отлет
                 local bv = Instance.new("BodyVelocity")
-                bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-                bv.Velocity = force + Vector3.new(0, 80000, 0)  -- сильный вверх
+                bv.Name = "KnockbackForce"
+                bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                bv.Velocity = direction * 350 + Vector3.new(0, 180, 0)  -- сильно в стороны + вверх
                 bv.Parent = otherRoot
                 
-                game:GetService("Debris"):AddItem(bv, 0.6)
+                game:GetService("Debris"):AddItem(bv, 1.2)  -- долго летят
             end
         end
     end
 end
 
 -- === Тоггл ===
-local function toggleKills()
+local function toggleKnockback()
     enabled = not enabled
     
     if enabled then
-        ToggleButton.Text = "Kills: ON"
+        ToggleButton.Text = "Knockback: ON"
         ToggleButton.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
-        StatusLabel.Text = "Статус: ВКЛЮЧЕНО (взрывы)"
+        StatusLabel.Text = "Статус: ВКЛЮЧЕНО (мощный отлет)"
         StatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
         
-        -- Запускаем цикл
+        enableGodmode()
+        
         if loopConnection then loopConnection:Disconnect() end
         loopConnection = RunService.Heartbeat:Connect(function()
             if enabled then
-                createBigExplosion()
-                wait(0.35)  -- частота взрывов (можно менять)
+                applyKnockback()
+                task.wait(0.25)  -- частота (можно уменьшить для ещё большего эффекта)
             end
         end)
     else
-        ToggleButton.Text = "Kills: OFF"
+        ToggleButton.Text = "Knockback: OFF"
         ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
         StatusLabel.Text = "Статус: Выключено"
         StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        
+        disableGodmode()
         
         if loopConnection then
             loopConnection:Disconnect()
@@ -129,9 +148,9 @@ local function toggleKills()
     end
 end
 
-ToggleButton.MouseButton1Click:Connect(toggleKills)
+ToggleButton.MouseButton1Click:Connect(toggleKnockback)
 
--- Закрытие меню на Insert
+-- Скрыть/показать меню на Insert
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.Insert then
@@ -139,9 +158,13 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- Авто-обновление персонажа
-player.CharacterAdded:Connect(function(newChar)
-    -- ничего не делаем, просто продолжаем работать
+-- Авто godmode при респавне
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if enabled then
+        enableGodmode()
+    end
 end)
 
-print("Kill Menu загружен! Нажми на кнопку для включения. Insert — скрыть/показать меню.")
+print("Knockback Menu загружен! Ты теперь бессмертный.")
+print("Нажми кнопку для включения. Insert — скрыть/показать меню.")
