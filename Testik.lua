@@ -1,24 +1,60 @@
--- Touch Fling для Delta (Safe, с GUI)
--- Просто вставь в Delta Executor и выполни
+-- ✅ Touch Fling (Другие отлетают при касании ТЕБЯ) для Delta Executor
+-- Ты стоишь стабильно, а кто тебя коснётся — улетает
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local lp = Players.LocalPlayer
-local hiddenfling = false
-local flingThread
+local enabled = false
+local connections = {}
 
--- Создаём GUI
+local function getRoot(char)
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
+end
+
+local function flingPlayer(otherChar)
+    if not otherChar or otherChar == lp.Character then return end
+    local root = getRoot(otherChar)
+    if not root then return end
+    
+    -- Мощный fling на другого игрока
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "TouchFlingBV"
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = (root.Position - lp.Character.HumanoidRootPart.Position).Unit * 300 + Vector3.new(0, 100, 0)
+    bv.Parent = root
+    
+    game.Debris:AddItem(bv, 0.6) -- Убираем через время
+end
+
+local function setupCharacter(char)
+    if not char then return end
+    task.wait(1) -- Ждём прогрузки
+    
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            local conn = part.Touched:Connect(function(hit)
+                if not enabled then return end
+                local otherChar = hit.Parent
+                if otherChar and otherChar:FindFirstChild("Humanoid") and otherChar ~= char then
+                    flingPlayer(otherChar)
+                end
+            end)
+            table.insert(connections, conn)
+        end
+    end
+end
+
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "TouchFlingGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = lp:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 150)
+Frame.Size = UDim2.new(0, 220, 0, 160)
 Frame.Position = UDim2.new(0.4, 0, 0.3, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Frame.BorderSizePixel = 0
 Frame.Active = true
 Frame.Draggable = true
@@ -27,66 +63,39 @@ Frame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundTransparency = 1
-Title.Text = "Touch Fling"
-Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.Text = "Touch Fling (Reverse)"
+Title.TextColor3 = Color3.fromRGB(0, 200, 255)
 Title.TextScaled = true
 Title.Font = Enum.Font.SourceSansBold
 Title.Parent = Frame
 
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(0.8, 0, 0, 50)
-ToggleButton.Position = UDim2.new(0.1, 0, 0.4, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-ToggleButton.Text = "OFF"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.TextScaled = true
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Parent = Frame
+local Toggle = Instance.new("TextButton")
+Toggle.Size = UDim2.new(0.85, 0, 0, 55)
+Toggle.Position = UDim2.new(0.075, 0, 0.45, 0)
+Toggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+Toggle.Text = "OFF"
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.TextScaled = true
+Toggle.Font = Enum.Font.SourceSansBold
+Toggle.Parent = Frame
 
--- Защита от анти-читов (detection)
-if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
-    local detection = Instance.new("Decal")
-    detection.Name = "juisdfj0i32i0eidsuf0iok"
-    detection.Parent = ReplicatedStorage
-end
-
-local function fling()
-    local c, hrp, vel, movel = nil, nil, nil, 0.1
-    while hiddenfling do
-        RunService.Heartbeat:Wait()
-        
-        c = lp.Character
-        hrp = c and c:FindFirstChild("HumanoidRootPart")
-        
-        if hrp then
-            vel = hrp.Velocity
-            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-            
-            RunService.RenderStepped:Wait()
-            hrp.Velocity = vel
-            
-            RunService.Stepped:Wait()
-            hrp.Velocity = vel + Vector3.new(0, movel, 0)
-            movel = -movel
-        end
-    end
-end
-
-ToggleButton.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    ToggleButton.Text = hiddenfling and "ON" or "OFF"
-    ToggleButton.BackgroundColor3 = hiddenfling and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
-    
-    if hiddenfling then
-        if flingThread then coroutine.close(flingThread) end
-        flingThread = coroutine.create(fling)
-        coroutine.resume(flingThread)
-    else
-        if flingThread then
-            coroutine.close(flingThread)
-            flingThread = nil
-        end
-    end
+Toggle.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    Toggle.Text = enabled and "ON" or "OFF"
+    Toggle.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
 end)
 
-print("✅ Touch Fling загружен! Включи в GUI. Работает при касании других игроков.")
+-- Переподключение при респавне
+lp.CharacterAdded:Connect(function(char)
+    for _, conn in ipairs(connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    connections = {}
+    setupCharacter(char)
+end)
+
+if lp.Character then
+    setupCharacter(lp.Character)
+end
+
+print("✅ Touch Fling (Reverse) загружен! Теперь другие отлетают, когда касаются тебя.")
