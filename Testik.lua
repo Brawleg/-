@@ -98,7 +98,7 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
 	detection.Parent = ReplicatedStorage
 end
 
--- ==================== FIXED FLY ====================
+-- ==================== FIXED FLY (вперёд = вперёд) ====================
 local bv, bg = nil, nil
 
 local function startFly()
@@ -140,7 +140,7 @@ local function stopFly()
 	FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 end
 
--- Исправленный цикл полёта
+-- **Исправленный** цикл полёта
 RunService.RenderStepped:Connect(function()
 	if not flying or not bv or not bg then return end
 	
@@ -151,7 +151,7 @@ RunService.RenderStepped:Connect(function()
 	local humanoid = character:FindFirstChild("Humanoid")
 	local moveDir = Vector3.new(0, 0, 0)
 	
-	-- Клавиши (ПК)
+	-- ПК клавиши
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
 		moveDir += camera.CFrame.LookVector
 	end
@@ -171,16 +171,16 @@ RunService.RenderStepped:Connect(function()
 		moveDir -= Vector3.new(0, 1, 0)
 	end
 	
-	-- Мобильный джойстик (исправлено)
+	-- **Мобильный джойстик — исправлено**
 	if humanoid and humanoid.MoveDirection.Magnitude > 0 then
-		local camRight = camera.CFrame.RightVector
-		local camLook = camera.CFrame.LookVector
+		local forward = camera.CFrame.LookVector
+		local right   = camera.CFrame.RightVector
 		
-		moveDir += (camLook * humanoid.MoveDirection.Z * -1)   -- Z отрицательный = вперёд
-		moveDir += (camRight * humanoid.MoveDirection.X)
+		-- MoveDirection.Z обычно отрицательный при движении вперёд на мобильных
+		moveDir += forward * (-humanoid.MoveDirection.Z)   -- ВПЕРЁД = ВПЕРЁД
+		moveDir += right   * humanoid.MoveDirection.X      -- Влево/вправо
 	end
 	
-	-- Применяем движение
 	if moveDir.Magnitude > 0 then
 		moveDir = moveDir.Unit
 	end
@@ -274,4 +274,4 @@ end)
 
 fling()
 
-print("Fuck Fling + Fixed Fly загружен! Управление исправлено.")
+print("Fuck Fling + Fixed Fly загружен! Управление ВПЕРЁД/НАЗАД исправлено.")
