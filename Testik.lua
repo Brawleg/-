@@ -1,182 +1,147 @@
--- ✅ Улучшенная версия: Kill Menu + ВЗРЫВ при нажатии кнопки
--- Всех разбрасывает и убивает + крутой визуал взрыва
+-- === KILL MENU (Explosion Knockback) для Executor Roblox ===
+-- Включи/выключи "Kills" — вокруг тебя взрыв и всех откидывает ОЧЕНЬ далеко
+-- Работает на большинстве executors (Synapse, Fluxus, Wave и т.д.)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
 local enabled = false
-local connections = {}
+local loopConnection = nil
 
--- === СОЗДАНИЕ МЕНЮ ===
+-- === Создаём красивое меню ===
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ExplosionKillMenu"
+ScreenGui.Name = "KillMenu"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 300, 0, 200)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 280, 0, 160)
+MainFrame.Position = UDim2.new(0.5, -140, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 45)
+Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundTransparency = 1
-Title.Text = "💥 EXPLOSION KILL"
+Title.Text = "KILL MENU"
 Title.TextColor3 = Color3.fromRGB(255, 80, 80)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
 Title.Parent = MainFrame
 
 local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(0.85, 0, 0, 60)
-ToggleButton.Position = UDim2.new(0.075, 0, 0.35, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 20, 20)
-ToggleButton.Text = "💥 АКТИВИРОВАТЬ ВЗРЫВ"
-ToggleButton.TextColor3 = Color3.new(1,1,1)
+ToggleButton.Size = UDim2.new(0.85, 0, 0, 50)
+ToggleButton.Position = UDim2.new(0.075, 0, 0.45, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+ToggleButton.Text = "Kills: OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleButton.TextScaled = true
-ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Font = Enum.Font.GothamSemibold
 ToggleButton.Parent = MainFrame
 
-Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 12)
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.Parent = ToggleButton
 
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, 0, 0, 35)
-Status.Position = UDim2.new(0, 0, 0.75, 0)
-Status.BackgroundTransparency = 1
-Status.Text = "Статус: ВЫКЛ"
-Status.TextColor3 = Color3.fromRGB(180, 180, 180)
-Status.TextScaled = true
-Status.Font = Enum.Font.Gotham
-Status.Parent = MainFrame
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 20)
+StatusLabel.Position = UDim2.new(0, 0, 0.85, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Статус: Выключено"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.TextScaled = true
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = MainFrame
 
--- === ФУНКЦИЯ ВЗРЫВА ===
-local function createExplosion()
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
+-- === Логика взрыва ===
+local function createBigExplosion()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return
+    end
+
     local root = player.Character.HumanoidRootPart
-    local explosionPos = root.Position + Vector3.new(0, 5, 0)
-    
-    -- Визуальный Explosion
     local explosion = Instance.new("Explosion")
-    explosion.Position = explosionPos
-    explosion.BlastRadius = 150
-    explosion.BlastPressure = 500000
+    
+    explosion.Position = root.Position + Vector3.new(0, 5, 0)  -- немного выше, чтобы лучше разлетались
+    explosion.BlastRadius = 80
+    explosion.BlastPressure = 5000000  -- очень сильный отлет
+    explosion.Visible = true
     explosion.Parent = workspace
     
-    -- Дополнительные эффекты
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://138081500" -- Большой взрыв
-    sound.Volume = 1.5
-    sound.Parent = root
-    sound:Play()
-    Debris:AddItem(sound, 5)
-    
-    -- Частицы
-    local attachment = Instance.new("Attachment", root)
-    local particle = Instance.new("ParticleEmitter")
-    particle.Texture = "rbxassetid://243098098"
-    particle.Lifetime = NumberRange.new(1.5, 3)
-    particle.Rate = 800
-    particle.Speed = NumberRange.new(30, 80)
-    particle.SpreadAngle = Vector2.new(360, 360)
-    particle.Size = NumberSequence.new(4, 0)
-    particle.Transparency = NumberSequence.new(0.3, 1)
-    particle.Parent = attachment
-    Debris:AddItem(attachment, 3)
-    
-    -- Убийство и отбрасывание всех игроков
+    -- Дополнительный импульс (на случай если обычный взрыв не сильно откидывает)
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local char = plr.Character
-            local hum = char:FindFirstChild("Humanoid")
-            local rootPart = char:FindFirstChild("HumanoidRootPart")
-            
-            if hum and rootPart then
-                -- Отбрасывание
-                local direction = (rootPart.Position - explosionPos).Unit * 120 + Vector3.new(0, 50, 0)
-                rootPart.Velocity = direction
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local otherRoot = plr.Character.HumanoidRootPart
+            local distance = (otherRoot.Position - root.Position).Magnitude
+            if distance < 70 and distance > 3 then
+                local direction = (otherRoot.Position - root.Position).Unit
+                local force = direction * (120000 / math.max(distance, 10))
                 
-                -- Убийство
-                hum.Health = 0
-                task.delay(0.1, function()
-                    if hum then hum:TakeDamage(100) end
-                end)
+                local bv = Instance.new("BodyVelocity")
+                bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                bv.Velocity = force + Vector3.new(0, 80000, 0)  -- сильный вверх
+                bv.Parent = otherRoot
+                
+                game:GetService("Debris"):AddItem(bv, 0.6)
             end
         end
     end
 end
 
--- === ТОГГЛ ===
-local function updateUI()
-    if enabled then
-        ToggleButton.Text = "💥 ВЗРЫВ АКТИВЕН (F4)"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-        Status.Text = "Статус: ВКЛЮЧЕНО"
-        Status.TextColor3 = Color3.fromRGB(0, 255, 100)
-    else
-        ToggleButton.Text = "💥 АКТИВИРОВАТЬ ВЗРЫВ"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 20, 20)
-        Status.Text = "Статус: ВЫКЛ"
-        Status.TextColor3 = Color3.fromRGB(180, 180, 180)
-    end
-end
-
-ToggleButton.MouseButton1Click:Connect(function()
+-- === Тоггл ===
+local function toggleKills()
     enabled = not enabled
-    updateUI()
     
     if enabled then
-        createExplosion() -- Взрыв сразу при включении
-    end
-end)
-
--- Горячая клавиша F4
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.F4 then
-        enabled = not enabled
-        updateUI()
-        if enabled then
-            createExplosion()
-        end
-    end
-end)
-
--- Kill On Touch (оставил как доп. возможность)
-local function killOnTouch(hit)
-    if not enabled then return end
-    local char = hit.Parent
-    local hum = char:FindFirstChild("Humanoid")
-    local otherPlr = Players:GetPlayerFromCharacter(char)
-    if hum and otherPlr and otherPlr ~= player then
-        hum.Health = 0
-    end
-end
-
-local function setupCharacter(char)
-    for _, conn in pairs(connections) do conn:Disconnect() end
-    connections = {}
-    
-    task.wait(0.5)
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            table.insert(connections, part.Touched:Connect(killOnTouch))
+        ToggleButton.Text = "Kills: ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
+        StatusLabel.Text = "Статус: ВКЛЮЧЕНО (взрывы)"
+        StatusLabel.TextColor3 = Color3.fromRGB(80, 255, 80)
+        
+        -- Запускаем цикл
+        if loopConnection then loopConnection:Disconnect() end
+        loopConnection = RunService.Heartbeat:Connect(function()
+            if enabled then
+                createBigExplosion()
+                wait(0.35)  -- частота взрывов (можно менять)
+            end
+        end)
+    else
+        ToggleButton.Text = "Kills: OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+        StatusLabel.Text = "Статус: Выключено"
+        StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        
+        if loopConnection then
+            loopConnection:Disconnect()
+            loopConnection = nil
         end
     end
 end
 
-player.CharacterAdded:Connect(setupCharacter)
-if player.Character then setupCharacter(player.Character) end
+ToggleButton.MouseButton1Click:Connect(toggleKills)
 
-updateUI()
+-- Закрытие меню на Insert
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
 
-print("💥 Explosion Kill Menu загружено! Нажми кнопку или F4")
+-- Авто-обновление персонажа
+player.CharacterAdded:Connect(function(newChar)
+    -- ничего не делаем, просто продолжаем работать
+end)
+
+print("Kill Menu загружен! Нажми на кнопку для включения. Insert — скрыть/показать меню.")
