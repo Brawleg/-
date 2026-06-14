@@ -1,4 +1,4 @@
--- Touch Fling + Anti-Ragdoll + GodMode (Исправлено рассыпание)
+-- Touch Fling + Anti-Ragdoll + GodMode (Враги отталкиваются сильно)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local lp = Players.LocalPlayer
 local hiddenfling = false
 local flingThread
-local connections = {}
+local touchConnections = {}
 
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
@@ -48,10 +48,10 @@ TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 TextButton.TextSize = 20
 
 -- ==================== ANTI-RAGDOLL + GODMODE ====================
-local function antiRagdoll(character)
+local function fixCharacter(character)
     if not character then return end
-    
     local humanoid = character:WaitForChild("Humanoid", 5)
+    
     if humanoid then
         humanoid.MaxHealth = 1e9
         humanoid.Health = 1e9
@@ -60,72 +60,90 @@ local function antiRagdoll(character)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
         humanoid.PlatformStand = false
-        humanoid.AutoRotate = true
     end
 
-    -- Восстанавливаем все Motor6D и BallSocket (чтобы не рассыпался)
-    for _, joint in ipairs(character:GetDescendants()) do
-        if joint:IsA("Motor6D") or joint:IsA("BallSocketConstraint") or joint:IsA("HingeConstraint") then
-            joint.Enabled = true
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("Motor6D") or obj:IsA("BallSocketConstraint") then
+            obj.Enabled = true
         end
-        if joint:IsA("BasePart") then
-            joint.CanCollide = true
-            joint.AssemblyLinearVelocity = Vector3.new(0,0,0)
-            joint.AssemblyAngularVelocity = Vector3.new(0,0,0)
+        if obj:IsA("BasePart") then
+            obj.CanCollide = true
         end
     end
 end
 
--- Постоянная защита от рассыпания
-local godConnection = RunService.Heartbeat:Connect(function()
-    local char = lp.Character
-    if char then
-        antiRagdoll(char)
+local antiRagdollLoop = RunService.Heartbeat:Connect(function()
+    if lp.Character then
+        fixCharacter(lp.Character)
     end
 end)
 
 lp.CharacterAdded:Connect(function(char)
-    task.wait(0.6)
-    antiRagdoll(char)
+    task.wait(0.5)
+    fixCharacter(char)
 end)
 
 if lp.Character then
-    task.wait(0.6)
-    antiRagdoll(lp.Character)
+    task.wait(0.5)
+    fixCharacter(lp.Character)
 end
 
--- ==================== TOUCH FLING ====================
-local function fling()
-    while hiddenfling do
+-- ==================== TOUCH FLING (только другие улетают) ====================
+local function flingOther(root)
+    if not root then return end
+    for i = 1, 20 do
+        root.AssemblyLinearVelocity = Vector3.new(math.random(-350,350), 450 + math.random(100,300), math.random(-350,350))
+        root.Velocity = root.AssemblyLinearVelocity
         RunService.Heartbeat:Wait()
-        local char = lp.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        
-        if hrp then
-            local vel = hrp.AssemblyLinearVelocity
-            hrp.AssemblyLinearVelocity = vel * 8000 + Vector3.new(0, 8000, 0)
-            
-            RunService.RenderStepped:Wait()
-            hrp.AssemblyLinearVelocity = vel
-            
-            RunService.Stepped:Wait()
-            hrp.AssemblyLinearVelocity = vel + Vector3.new(0, 0.1, 0)
+    end
+end
+
+local function onTouched(hit)
+    if not hiddenfling then return end
+    local otherChar = hit.Parent
+    if not otherChar or otherChar == lp.Character then return end
+    
+    local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
+    if otherRoot then
+        flingOther(otherRoot)
+    end
+end
+
+local function attachTouchFling()
+    local char = lp.Character
+    if not char then return end
+    
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and not touchConnections[part] then
+            local conn = part.Touched:Connect(onTouched)
+            touchConnections[part] = conn
         end
     end
 end
 
-local function stopFlingSafely()
-    hiddenfling = false
-    local char = lp.Character
-    if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            hrp.Velocity = Vector3.new(0, 0, 0)
-        end
+local function removeTouchFling()
+    for _, conn in pairs(touchConnections) do
+        conn:Disconnect()
     end
+    touchConnections = {}
 end
+
+-- ==================== КНОПКА ====================
+TextButton.MouseButton1Click:Connect(function()
+    hiddenfling = not hiddenfling
+    TextButton.Text = hiddenfling and "ON" or "OFF"
+
+    if hiddenfling then
+        attachTouchFling()
+        -- Дополнительно обновляем прикрепление при респавне
+        lp.CharacterAdded:Connect(function()
+            task.wait(1)
+            attachTouchFling()
+        end)
+    else
+        removeTouchFling()
+    end
+end)
 
 -- Детект
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
@@ -134,17 +152,4 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
     detection.Parent = ReplicatedStorage
 end
 
-TextButton.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    TextButton.Text = hiddenfling and "ON" or "OFF"
-
-    if hiddenfling then
-        flingThread = coroutine.create(fling)
-        coroutine.resume(flingThread)
-    else
-        stopFlingSafely()
-    end
-end)
-
-print("✅ Touch Fling + Anti-Ragdoll загружен!")
-print("Рассывание должно исчезнуть.")
+print("✅ Touch Fling исправлен! Враги снова сильно отталкиваются.")
