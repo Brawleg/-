@@ -1,6 +1,3 @@
--- Обновлённый Fly: теперь летишь **куда смотришь** (камера) + поддержка мобильного джойстика
--- Более стабильный и плавный полёт для Delta на телефоне
-
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local ToggleButton = Instance.new("TextButton")
@@ -28,7 +25,7 @@ TextLabel.Parent = Frame
 TextLabel.BackgroundTransparency = 1
 TextLabel.Size = UDim2.new(1, 0, 0.14, 0)
 TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "Fuck Fling + Better Fly"
+TextLabel.Text = "Fuck Fling + Fixed Fly"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextLabel.TextSize = 20
 
@@ -92,7 +89,7 @@ local flying = false
 local flingPower = 10000
 local lp = Players.LocalPlayer
 local dragging = false
-local flySpeed = 70  -- скорость полёта (можно менять)
+local flySpeed = 70
 
 -- Anti-detection
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
@@ -101,7 +98,7 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
 	detection.Parent = ReplicatedStorage
 end
 
--- ==================== IMPROVED FLY (куда смотришь + мобильный джойстик) ====================
+-- ==================== FIXED FLY ====================
 local bv, bg = nil, nil
 
 local function startFly()
@@ -115,7 +112,7 @@ local function startFly()
 	bv = Instance.new("BodyVelocity")
 	bv.Name = "FlyVelocity"
 	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bv.Velocity = Vector3.new(0, 0, 0)
+	bv.Velocity = Vector3.new(0,0,0)
 	bv.Parent = hrp
 	
 	bg = Instance.new("BodyGyro")
@@ -125,9 +122,7 @@ local function startFly()
 	bg.D = 500
 	bg.Parent = hrp
 	
-	if humanoid then
-		humanoid.PlatformStand = true
-	end
+	if humanoid then humanoid.PlatformStand = true end
 	
 	flying = true
 	FlyButton.Text = "FLY ON"
@@ -145,55 +140,56 @@ local function stopFly()
 	FlyButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 end
 
--- Основной цикл полёта — летишь точно куда смотрит камера
+-- Исправленный цикл полёта
 RunService.RenderStepped:Connect(function()
 	if not flying or not bv or not bg then return end
 	
 	local character = lp.Character
 	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-	local hrp = character.HumanoidRootPart
+	
 	local camera = workspace.CurrentCamera
 	local humanoid = character:FindFirstChild("Humanoid")
-	
-	-- Основное направление — куда смотрит камера
 	local moveDir = Vector3.new(0, 0, 0)
 	
-	-- Поддержка клавиш (ПК)
+	-- Клавиши (ПК)
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up) then
-		moveDir = moveDir + camera.CFrame.LookVector
+		moveDir += camera.CFrame.LookVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down) then
-		moveDir = moveDir - camera.CFrame.LookVector
+		moveDir -= camera.CFrame.LookVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left) then
-		moveDir = moveDir - camera.CFrame.RightVector
+		moveDir -= camera.CFrame.RightVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
-		moveDir = moveDir + camera.CFrame.RightVector
+		moveDir += camera.CFrame.RightVector
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-		moveDir = moveDir + Vector3.new(0, 1, 0)
+		moveDir += Vector3.new(0, 1, 0)
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-		moveDir = moveDir - Vector3.new(0, 1, 0)
+		moveDir -= Vector3.new(0, 1, 0)
 	end
 	
-	-- Поддержка мобильного джойстика (Humanoid.MoveDirection)
+	-- Мобильный джойстик (исправлено)
 	if humanoid and humanoid.MoveDirection.Magnitude > 0 then
-		local camRelative = camera.CFrame:VectorToWorldSpace(humanoid.MoveDirection)
-		moveDir = moveDir + camRelative
+		local camRight = camera.CFrame.RightVector
+		local camLook = camera.CFrame.LookVector
+		
+		moveDir += (camLook * humanoid.MoveDirection.Z * -1)   -- Z отрицательный = вперёд
+		moveDir += (camRight * humanoid.MoveDirection.X)
 	end
 	
-	-- Нормализуем направление
+	-- Применяем движение
 	if moveDir.Magnitude > 0 then
 		moveDir = moveDir.Unit
 	end
 	
 	bv.Velocity = moveDir * flySpeed
-	bg.CFrame = camera.CFrame  -- поворачиваем персонажа куда смотрит камера
+	bg.CFrame = camera.CFrame
 end)
 
--- ==================== FLING LOGIC (оставил почти без изменений) ====================
+-- ==================== FLING ====================
 local function fling()
 	local hrp, c, vel, movel = nil, nil, nil, 0.1
 	
@@ -210,9 +206,7 @@ local function fling()
 				vel = hrp.Velocity
 				hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
 				RunService.RenderStepped:Wait()
-				if hrp and hrp.Parent then
-					hrp.Velocity = vel
-				end
+				if hrp and hrp.Parent then hrp.Velocity = vel end
 				RunService.Stepped:Wait()
 				if hrp and hrp.Parent then
 					hrp.Velocity = vel + Vector3.new(0, movel, 0)
@@ -223,7 +217,7 @@ local function fling()
 	end
 end
 
--- ==================== BUTTONS ====================
+-- Buttons
 ToggleButton.MouseButton1Click:Connect(function()
 	hiddenfling = not hiddenfling
 	if hiddenfling then
@@ -236,11 +230,7 @@ ToggleButton.MouseButton1Click:Connect(function()
 end)
 
 FlyButton.MouseButton1Click:Connect(function()
-	if flying then
-		stopFly()
-	else
-		startFly()
-	end
+	if flying then stopFly() else startFly() end
 end)
 
 HideButton.MouseButton1Click:Connect(function()
@@ -273,7 +263,6 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
--- Авто-рестарт после смерти
 lp.CharacterAdded:Connect(function()
 	task.wait(1)
 	if flying then
@@ -285,4 +274,4 @@ end)
 
 fling()
 
-print("Fuck Fling + Better Fly загружен! Теперь летишь точно куда смотрит камера.")
+print("Fuck Fling + Fixed Fly загружен! Управление исправлено.")
