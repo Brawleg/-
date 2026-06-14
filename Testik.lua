@@ -1,4 +1,4 @@
--- Touch Fling + GodMode (Исправлено: не умираешь при выключении и при смене карты)
+-- Touch Fling + СУПЕР БЕССМЕРТИЕ (Исправлено специально для Выживания в стихийных бедствиях)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -50,10 +50,13 @@ TextButton.Text = "OFF"
 TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 TextButton.TextSize = 20
 
--- ==================== БЕССМЕРТИЕ ====================
-local function applyImmortality(character)
-    if not character or not immortalityEnabled then return end
-    local humanoid = character:WaitForChild("Humanoid", 8)
+-- ==================== СУПЕР БЕССМЕРТИЕ ====================
+local godLoop
+
+local function applySuperGodMode(character)
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local root = character:FindFirstChild("HumanoidRootPart")
     
     if humanoid then
         humanoid.MaxHealth = 1e9
@@ -61,41 +64,66 @@ local function applyImmortality(character)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
         
-        -- Постоянная защита
-        task.spawn(function()
-            while immortalityEnabled and character.Parent do
-                if humanoid.Health < 1e9 then
-                    humanoid.Health = 1e9
-                end
-                RunService.Heartbeat:Wait()
-            end
-        end)
+        if root then
+            root.CanCollide = true
+        end
     end
 end
 
--- Применяем бессмертие
-if lp.Character then
-    applyImmortality(lp.Character)
+-- Постоянный защитный цикл (очень агрессивный)
+local function startGodLoop()
+    if godLoop then return end
+    godLoop = RunService.Heartbeat:Connect(function()
+        local character = lp.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        local root = character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid then
+            humanoid.MaxHealth = 1e9
+            humanoid.Health = 1e9
+            
+            -- Защита от всех состояний смерти
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+        end
+        
+        if root and root.Position.Y < -500 then
+            -- Если сильно упал — возвращаем наверх
+            root.CFrame = root.CFrame + Vector3.new(0, 100, 0)
+        end
+    end)
 end
-lp.CharacterAdded:Connect(applyImmortality)
+
+-- Применяем при респавне и смене карты
+lp.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    applySuperGodMode(char)
+end)
+
+if lp.Character then
+    applySuperGodMode(lp.Character)
+end
+startGodLoop()
 
 -- ==================== TOUCH FLING ====================
 local function fling()
-    local c, hrp, vel
-    while hiddenfling do
-        RunService.Heartbeat:Wait()
-        c = lp.Character
-        hrp = c and c:FindFirstChild("HumanoidRootPart")
-
-        if hrp then
-            vel = hrp.Velocity
-            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-            RunService.RenderStepped:Wait()
-            hrp.Velocity = vel
-            RunService.Stepped:Wait()
-            hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
-        end
+    while hiddenfling and task.wait() do
+        local character = lp.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+        
+        local vel = hrp.Velocity
+        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+        RunService.RenderStepped:Wait()
+        hrp.Velocity = vel
+        RunService.Stepped:Wait()
+        hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
     end
 end
 
@@ -107,6 +135,7 @@ local function stopFlingSafely()
         if hrp then
             hrp.Velocity = Vector3.new(0, 0, 0)
             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end
     end
 end
@@ -130,9 +159,8 @@ TextButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Делаем окно перетаскиваемым
 Frame.Active = true
 Frame.Draggable = true
 
-print("✅ Touch Fling + Бессмертие загружен!")
-print("Бессмертие работает постоянно (даже при смене карты в Выживании).")
+print("✅ Touch Fling + СУПЕР БЕССМЕРТИЕ загружен!")
+print("Теперь ты не должен умирать даже при смене карты и выключении fling.")
