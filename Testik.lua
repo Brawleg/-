@@ -1,4 +1,4 @@
--- Touch Fling + СУПЕР БЕССМЕРТИЕ (Исправлено специально для Выживания в стихийных бедствиях)
+-- Touch Fling + Anti-Ragdoll + GodMode (Исправлено рассыпание)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local lp = Players.LocalPlayer
 local hiddenfling = false
 local flingThread
-local immortalityEnabled = true
+local connections = {}
 
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
@@ -21,21 +21,18 @@ ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
 Frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
-Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.3885, 0, 0.4278, 0)
 Frame.Size = UDim2.new(0, 158, 0, 140)
+Frame.Active = true
+Frame.Draggable = true
 
 Frame_2.Parent = Frame
 Frame_2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Frame_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
-Frame_2.BorderSizePixel = 0
-Frame_2.Size = UDim2.new(0, 158, 0, 25)
+Frame_2.Size = UDim2.new(1, 0, 0, 25)
 
 TextLabel.Parent = Frame_2
 TextLabel.BackgroundTransparency = 1
-TextLabel.Position = UDim2.new(0.1128, 0, -0.0152, 0)
-TextLabel.Size = UDim2.new(0, 121, 0, 26)
+TextLabel.Size = UDim2.new(1, 0, 1, 0)
 TextLabel.Font = Enum.Font.Sarpanch
 TextLabel.Text = "Touch Fling"
 TextLabel.TextColor3 = Color3.fromRGB(0, 0, 255)
@@ -50,92 +47,82 @@ TextButton.Text = "OFF"
 TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 TextButton.TextSize = 20
 
--- ==================== СУПЕР БЕССМЕРТИЕ ====================
-local godLoop
-
-local function applySuperGodMode(character)
+-- ==================== ANTI-RAGDOLL + GODMODE ====================
+local function antiRagdoll(character)
     if not character then return end
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    local root = character:FindFirstChild("HumanoidRootPart")
     
+    local humanoid = character:WaitForChild("Humanoid", 5)
     if humanoid then
         humanoid.MaxHealth = 1e9
         humanoid.Health = 1e9
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
         humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
-        
-        if root then
-            root.CanCollide = true
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+        humanoid.PlatformStand = false
+        humanoid.AutoRotate = true
+    end
+
+    -- Восстанавливаем все Motor6D и BallSocket (чтобы не рассыпался)
+    for _, joint in ipairs(character:GetDescendants()) do
+        if joint:IsA("Motor6D") or joint:IsA("BallSocketConstraint") or joint:IsA("HingeConstraint") then
+            joint.Enabled = true
+        end
+        if joint:IsA("BasePart") then
+            joint.CanCollide = true
+            joint.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            joint.AssemblyAngularVelocity = Vector3.new(0,0,0)
         end
     end
 end
 
--- Постоянный защитный цикл (очень агрессивный)
-local function startGodLoop()
-    if godLoop then return end
-    godLoop = RunService.Heartbeat:Connect(function()
-        local character = lp.Character
-        if not character then return end
-        
-        local humanoid = character:FindFirstChild("Humanoid")
-        local root = character:FindFirstChild("HumanoidRootPart")
-        
-        if humanoid then
-            humanoid.MaxHealth = 1e9
-            humanoid.Health = 1e9
-            
-            -- Защита от всех состояний смерти
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
-        end
-        
-        if root and root.Position.Y < -500 then
-            -- Если сильно упал — возвращаем наверх
-            root.CFrame = root.CFrame + Vector3.new(0, 100, 0)
-        end
-    end)
-end
+-- Постоянная защита от рассыпания
+local godConnection = RunService.Heartbeat:Connect(function()
+    local char = lp.Character
+    if char then
+        antiRagdoll(char)
+    end
+end)
 
--- Применяем при респавне и смене карты
 lp.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    applySuperGodMode(char)
+    task.wait(0.6)
+    antiRagdoll(char)
 end)
 
 if lp.Character then
-    applySuperGodMode(lp.Character)
+    task.wait(0.6)
+    antiRagdoll(lp.Character)
 end
-startGodLoop()
 
 -- ==================== TOUCH FLING ====================
 local function fling()
-    while hiddenfling and task.wait() do
-        local character = lp.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
+    while hiddenfling do
+        RunService.Heartbeat:Wait()
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
         
-        local vel = hrp.Velocity
-        hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-        RunService.RenderStepped:Wait()
-        hrp.Velocity = vel
-        RunService.Stepped:Wait()
-        hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
+        if hrp then
+            local vel = hrp.AssemblyLinearVelocity
+            hrp.AssemblyLinearVelocity = vel * 8000 + Vector3.new(0, 8000, 0)
+            
+            RunService.RenderStepped:Wait()
+            hrp.AssemblyLinearVelocity = vel
+            
+            RunService.Stepped:Wait()
+            hrp.AssemblyLinearVelocity = vel + Vector3.new(0, 0.1, 0)
+        end
     end
 end
 
 local function stopFlingSafely()
     hiddenfling = false
-    local character = lp.Character
-    if character then
-        local hrp = character:FindFirstChild("HumanoidRootPart")
+    local char = lp.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.Velocity = Vector3.new(0, 0, 0)
             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            hrp.Velocity = Vector3.new(0, 0, 0)
         end
     end
 end
@@ -159,8 +146,5 @@ TextButton.MouseButton1Click:Connect(function()
     end
 end)
 
-Frame.Active = true
-Frame.Draggable = true
-
-print("✅ Touch Fling + СУПЕР БЕССМЕРТИЕ загружен!")
-print("Теперь ты не должен умирать даже при смене карты и выключении fling.")
+print("✅ Touch Fling + Anti-Ragdoll загружен!")
+print("Рассывание должно исчезнуть.")
