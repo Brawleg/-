@@ -1,13 +1,12 @@
--- Touch Fling + GodMode (Исправлено: ты не улетаешь, другие — очень далеко)
+-- Touch Fling + GodMode (Ты не улетаешь | Другие улетают очень далеко)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local lp = Players.LocalPlayer
-local immortalityEnabled = true
 local hiddenfling = false
-local flingConnection
+local connections = {}
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = lp:WaitForChild("PlayerGui")
@@ -50,12 +49,10 @@ GodLabel.Text = "GodMode: АКТИВЕН"
 GodLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
 GodLabel.TextSize = 18
 
--- ==================== УЛУЧШЕННОЕ БЕССМЕРТИЕ ====================
+-- ==================== БЕССМЕРТИЕ ====================
 local function applyGodMode(char)
-    if not char or not immortalityEnabled then return end
-    local hum = char:WaitForChild("Humanoid", 8)
-    local root = char:WaitForChild("HumanoidRootPart", 5)
-    
+    if not char then return end
+    local hum = char:WaitForChild("Humanoid", 5)
     if hum then
         hum.MaxHealth = 1e9
         hum.Health = 1e9
@@ -64,7 +61,7 @@ local function applyGodMode(char)
         hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
         
         task.spawn(function()
-            while immortalityEnabled and char.Parent do
+            while char.Parent do
                 hum.Health = 1e9
                 RunService.Heartbeat:Wait()
             end
@@ -76,64 +73,66 @@ if lp.Character then applyGodMode(lp.Character) end
 lp.CharacterAdded:Connect(applyGodMode)
 
 -- ==================== TOUCH FLING (только другие улетают) ====================
+local function flingOther(otherRoot)
+    if not otherRoot then return end
+    for i = 1, 25 do
+        otherRoot.AssemblyLinearVelocity = Vector3.new(math.random(-400,400), 500 + math.random(0,300), math.random(-400,400))
+        otherRoot.Velocity = otherRoot.AssemblyLinearVelocity
+        RunService.Heartbeat:Wait()
+    end
+end
+
 local function onTouch(part)
     if not hiddenfling then return end
+    
     local character = part.Parent
-    if not character then return end
+    if not character or character == lp.Character then return end -- Защита от себя
     
-    local humanoid = character:FindFirstChild("Humanoid")
     local root = character:FindFirstChild("HumanoidRootPart")
-    
-    if humanoid and root and character ~= lp.Character then
-        -- Сильный fling только для другого игрока
-        for i = 1, 15 do
-            root.AssemblyLinearVelocity = Vector3.new(math.random(-200,200), 300, math.random(-200,200))
-            root.Velocity = Vector3.new(math.random(-200,200), 300, math.random(-200,200))
-            RunService.Heartbeat:Wait()
+    if root then
+        flingOther(root)
+    end
+end
+
+local function attachFlingToCharacter(char)
+    if char == lp.Character then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                -- Удаляем старые соединения
+                if connections[part] then
+                    connections[part]:Disconnect()
+                end
+                
+                local conn = part.Touched:Connect(onTouch)
+                connections[part] = conn
+            end
         end
     end
 end
 
 local function startFling()
-    if flingConnection then return end
+    local char = lp.Character
+    if char then
+        attachFlingToCharacter(char)
+    end
     
-    flingConnection = RunService.Heartbeat:Connect(function()
-        local char = lp.Character
-        if not char then return end
-        
-        -- Прикрепляем Touched к частям персонажа
-        for _, part in ipairs(char:GetChildren()) do
-            if part:IsA("BasePart") and not part:FindFirstChild("FlingTouch") then
-                local touchConn = part.Touched:Connect(onTouch)
-                local tag = Instance.new("BoolValue")
-                tag.Name = "FlingTouch"
-                tag.Parent = part
-                
-                -- Очистка при смерти
-                part.AncestryChanged:Connect(function()
-                    if touchConn then touchConn:Disconnect() end
-                end)
-            end
-        end
+    -- Следим за респавном
+    lp.CharacterAdded:Connect(function(newChar)
+        task.wait(1)
+        attachFlingToCharacter(newChar)
     end)
 end
 
 local function stopFling()
-    if flingConnection then
-        flingConnection:Disconnect()
-        flingConnection = nil
+    for _, conn in pairs(connections) do
+        conn:Disconnect()
     end
-end
-
--- Детект
-if not ReplicatedStorage:FindFirstChild("FlingDetect") then
-    local folder = Instance.new("Folder")
-    folder.Name = "FlingDetect"
-    folder.Parent = ReplicatedStorage
+    connections = {}
 end
 
 FlingButton.MouseButton1Click:Connect(function()
     hiddenfling = not hiddenfling
+    
     if hiddenfling then
         FlingButton.Text = "FLING: ON"
         FlingButton.BackgroundColor3 = Color3.fromRGB(60, 255, 60)
@@ -145,4 +144,11 @@ FlingButton.MouseButton1Click:Connect(function()
     end
 end)
 
-print("✅ Touch Fling исправлен! Только те, кто тебя касается — улетают очень далеко.")
+-- Детект
+if not ReplicatedStorage:FindFirstChild("FlingDetect2026") then
+    local folder = Instance.new("Folder")
+    folder.Name = "FlingDetect2026"
+    folder.Parent = ReplicatedStorage
+end
+
+print("✅ Touch Fling исправлен! Ты почти не двигаешься, другие улетают очень далеко.")
