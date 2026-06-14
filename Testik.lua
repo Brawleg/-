@@ -1,139 +1,111 @@
+-- Touch Fling (Safe Version) - Просто ходи и касайся людей
+-- Защита: не умираешь, не улетаешь сильно сам
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local lp = Players.LocalPlayer
-local enabled = false
-local connections = {}
-local flingLoop
+local hiddenfling = false
+local flingThread
 
-local function getRoot(char)
-    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
-end
-
-local function clearSelfForces()
-    local char = lp.Character
-    if not char then return end
-    for _, v in ipairs(char:GetDescendants()) do
-        if v:IsA("BodyVelocity") or v:IsA("BodyAngularVelocity") or v:IsA("BodyForce") or v:IsA("LinearVelocity") then
-            v:Destroy()
+-- Защита от смерти и сильного отлёта (anti-ragdoll / velocity reset)
+local function protectLocalPlayer()
+    if lp.Character then
+        local humanoid = lp.Character:FindFirstChild("Humanoid")
+        local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+        if humanoid then
+            humanoid.PlatformStand = false
+            humanoid.Sit = false
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
+        end
+        if hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0) -- сбрасываем лишнюю скорость
+            hrp.RotVelocity = Vector3.new(0, 0, 0)
         end
     end
 end
 
-local function flingPlayer(otherChar)
-    if not otherChar or otherChar == lp.Character then return end
+-- Основная функция fling
+local function fling()
+    local c, hrp, vel, movel = nil, nil, nil, 0.1
     
-    local theirRoot = getRoot(otherChar)
-    local myRoot = getRoot(lp.Character)
-    if not theirRoot or not myRoot then return end
-    
-    -- Более мощный и стабильный fling
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "TouchFlingBV"
-    bv.MaxForce = Vector3.new(40000, 40000, 40000)  -- чуть меньше, чтобы не лагало
-    bv.Velocity = (theirRoot.Position - myRoot.Position).Unit * 250 + Vector3.new(0, 120, 0)
-    bv.Parent = theirRoot
-    
-    Debris:AddItem(bv, 0.7)
-end
-
--- Основной цикл проверки касаний (более надёжно чем Touched)
-local function startFlingLoop()
-    if flingLoop then return end
-    
-    flingLoop = RunService.Heartbeat:Connect(function()
-        if not enabled then return end
+    while hiddenfling do
+        RunService.Heartbeat:Wait()
         
-        local myChar = lp.Character
-        local myRoot = getRoot(myChar)
-        if not myRoot then return end
+        protectLocalPlayer() -- защита каждый тик
         
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= lp then
-                local theirChar = player.Character
-                if theirChar then
-                    local theirRoot = getRoot(theirChar)
-                    if theirRoot then
-                        local distance = (theirRoot.Position - myRoot.Position).Magnitude
-                        if distance < 8 then  -- расстояние касания
-                            flingPlayer(theirChar)
-                        end
-                    end
-                end
-            end
+        c = lp.Character
+        hrp = c and c:FindFirstChild("HumanoidRootPart")
+        
+        if hrp then
+            vel = hrp.Velocity
+            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)  -- мощный импульс
+            RunService.RenderStepped:Wait()
+            hrp.Velocity = vel
+            RunService.Stepped:Wait()
+            hrp.Velocity = vel + Vector3.new(0, movel, 0)
+            movel = -movel
         end
-    end)
-end
-
-local function stopFlingLoop()
-    if flingLoop then
-        flingLoop:Disconnect()
-        flingLoop = nil
     end
-    clearSelfForces()
 end
 
-local function setupCharacter(char)
-    if not char then return end
-    task.wait(1.5)
-    
-    clearSelfForces()
-end
-
--- GUI
+-- Простая GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = lp:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 240, 0, 170)
+Frame.Size = UDim2.new(0, 180, 0, 120)
 Frame.Position = UDim2.new(0.4, 0, 0.3, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundTransparency = 1
-Title.Text = "Touch Fling (Reverse)"
-Title.TextColor3 = Color3.fromRGB(0, 220, 255)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Title.Text = "Touch Fling"
+Title.TextColor3 = Color3.fromRGB(0, 255, 100)
 Title.TextScaled = true
-Title.Font = Enum.Font.SourceSansBold
 Title.Parent = Frame
 
 local Toggle = Instance.new("TextButton")
-Toggle.Size = UDim2.new(0.85, 0, 0, 60)
-Toggle.Position = UDim2.new(0.075, 0, 0.42, 0)
-Toggle.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+Toggle.Size = UDim2.new(0.8, 0, 0, 50)
+Toggle.Position = UDim2.new(0.1, 0, 0.4, 0)
+Toggle.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 Toggle.Text = "OFF"
 Toggle.TextColor3 = Color3.new(1,1,1)
 Toggle.TextScaled = true
-Toggle.Font = Enum.Font.SourceSansBold
 Toggle.Parent = Frame
 
+-- Детект для некоторых анти-читов
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local decal = Instance.new("Decal")
+    decal.Name = "juisdfj0i32i0eidsuf0iok"
+    decal.Parent = ReplicatedStorage
+end
+
 Toggle.MouseButton1Click:Connect(function()
-    enabled = not enabled
-    Toggle.Text = enabled and "ON" or "OFF"
-    Toggle.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+    hiddenfling = not hiddenfling
+    Toggle.Text = hiddenfling and "ON" or "OFF"
+    Toggle.BackgroundColor3 = hiddenfling and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
     
-    if enabled then
-        startFlingLoop()
+    if hiddenfling then
+        flingThread = coroutine.create(fling)
+        coroutine.resume(flingThread)
     else
-        stopFlingLoop()
+        hiddenfling = false
+        protectLocalPlayer()
     end
 end)
 
--- Респавн
-lp.CharacterAdded:Connect(function(char)
-    stopFlingLoop()
-    setupCharacter(char)
+-- Авто-защита при респавне
+lp.CharacterAdded:Connect(function()
+    wait(1)
+    protectLocalPlayer()
 end)
 
-if lp.Character then
-    setupCharacter(lp.Character)
-end
-
-print("✅ Touch Fling (Reverse) улучшен! Теперь должен работать стабильнее.")
+print("Touch Fling загружен! Включи и просто ходи в людей.")
