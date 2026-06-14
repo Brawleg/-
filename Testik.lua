@@ -1,4 +1,4 @@
--- Touch Fling + Anti-Ragdoll + GodMode (Враги отталкиваются сильно)
+-- Touch Fling + Бессмертие + Anti-Ragdoll (Не умираешь и не рассыпаешься)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local lp = Players.LocalPlayer
 local hiddenfling = false
 local flingThread
-local touchConnections = {}
 
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
@@ -21,18 +20,21 @@ ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
 Frame.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
+Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BorderSizePixel = 0
 Frame.Position = UDim2.new(0.3885, 0, 0.4278, 0)
 Frame.Size = UDim2.new(0, 158, 0, 140)
-Frame.Active = true
-Frame.Draggable = true
 
 Frame_2.Parent = Frame
 Frame_2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Frame_2.Size = UDim2.new(1, 0, 0, 25)
+Frame_2.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Frame_2.BorderSizePixel = 0
+Frame_2.Size = UDim2.new(0, 158, 0, 25)
 
 TextLabel.Parent = Frame_2
 TextLabel.BackgroundTransparency = 1
-TextLabel.Size = UDim2.new(1, 0, 1, 0)
+TextLabel.Position = UDim2.new(0.1128, 0, -0.0152, 0)
+TextLabel.Size = UDim2.new(0, 121, 0, 26)
 TextLabel.Font = Enum.Font.Sarpanch
 TextLabel.Text = "Touch Fling"
 TextLabel.TextColor3 = Color3.fromRGB(0, 0, 255)
@@ -47,7 +49,7 @@ TextButton.Text = "OFF"
 TextButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 TextButton.TextSize = 20
 
--- ==================== ANTI-RAGDOLL + GODMODE ====================
+-- ==================== БЕССМЕРТИЕ + ANTI-RAGDOLL ====================
 local function fixCharacter(character)
     if not character then return end
     local humanoid = character:WaitForChild("Humanoid", 5)
@@ -62,16 +64,18 @@ local function fixCharacter(character)
         humanoid.PlatformStand = false
     end
 
-    for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("Motor6D") or obj:IsA("BallSocketConstraint") then
-            obj.Enabled = true
+    -- Восстанавливаем суставы, чтобы не рассыпаться
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("Motor6D") or v:IsA("BallSocketConstraint") then
+            v.Enabled = true
         end
-        if obj:IsA("BasePart") then
-            obj.CanCollide = true
+        if v:IsA("BasePart") then
+            v.CanCollide = true
         end
     end
 end
 
+-- Постоянная защита
 local antiRagdollLoop = RunService.Heartbeat:Connect(function()
     if lp.Character then
         fixCharacter(lp.Character)
@@ -79,71 +83,45 @@ local antiRagdollLoop = RunService.Heartbeat:Connect(function()
 end)
 
 lp.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
+    task.wait(0.6)
     fixCharacter(char)
 end)
 
 if lp.Character then
-    task.wait(0.5)
+    task.wait(0.6)
     fixCharacter(lp.Character)
 end
 
--- ==================== TOUCH FLING (только другие улетают) ====================
-local function flingOther(root)
-    if not root then return end
-    for i = 1, 20 do
-        root.AssemblyLinearVelocity = Vector3.new(math.random(-350,350), 450 + math.random(100,300), math.random(-350,350))
-        root.Velocity = root.AssemblyLinearVelocity
+-- ==================== TOUCH FLING ====================
+local function fling()
+    while hiddenfling do
         RunService.Heartbeat:Wait()
-    end
-end
-
-local function onTouched(hit)
-    if not hiddenfling then return end
-    local otherChar = hit.Parent
-    if not otherChar or otherChar == lp.Character then return end
-    
-    local otherRoot = otherChar:FindFirstChild("HumanoidRootPart")
-    if otherRoot then
-        flingOther(otherRoot)
-    end
-end
-
-local function attachTouchFling()
-    local char = lp.Character
-    if not char then return end
-    
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and not touchConnections[part] then
-            local conn = part.Touched:Connect(onTouched)
-            touchConnections[part] = conn
+        local c = lp.Character
+        local hrp = c and c:FindFirstChild("HumanoidRootPart")
+        
+        if hrp then
+            local vel = hrp.Velocity
+            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+            RunService.RenderStepped:Wait()
+            hrp.Velocity = vel
+            RunService.Stepped:Wait()
+            hrp.Velocity = vel + Vector3.new(0, 0.1, 0)
         end
     end
 end
 
-local function removeTouchFling()
-    for _, conn in pairs(touchConnections) do
-        conn:Disconnect()
+local function stopFlingSafely()
+    hiddenfling = false
+    local c = lp.Character
+    if c then
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Velocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
     end
-    touchConnections = {}
 end
-
--- ==================== КНОПКА ====================
-TextButton.MouseButton1Click:Connect(function()
-    hiddenfling = not hiddenfling
-    TextButton.Text = hiddenfling and "ON" or "OFF"
-
-    if hiddenfling then
-        attachTouchFling()
-        -- Дополнительно обновляем прикрепление при респавне
-        lp.CharacterAdded:Connect(function()
-            task.wait(1)
-            attachTouchFling()
-        end)
-    else
-        removeTouchFling()
-    end
-end)
 
 -- Детект
 if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
@@ -152,4 +130,20 @@ if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
     detection.Parent = ReplicatedStorage
 end
 
-print("✅ Touch Fling исправлен! Враги снова сильно отталкиваются.")
+TextButton.MouseButton1Click:Connect(function()
+    hiddenfling = not hiddenfling
+    TextButton.Text = hiddenfling and "ON" or "OFF"
+
+    if hiddenfling then
+        flingThread = coroutine.create(fling)
+        coroutine.resume(flingThread)
+    else
+        stopFlingSafely()
+    end
+end)
+
+Frame.Active = true
+Frame.Draggable = true
+
+print("✅ Touch Fling + Бессмертие + Anti-Ragdoll загружен!")
+print("Теперь ты не должен рассыпаться и умирать при выключении.")
